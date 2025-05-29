@@ -1,3 +1,10 @@
+/*
+ * This crate's job is to take in a byte and tidily organize it into
+ * a nested Enum that the CPU can use to process the instructions.
+ * All necesary values will be passed along (aside from N16 and N8, which the
+ * CPU will have to grab from memory)
+ */
+
 #[derive(Debug)]
 pub enum Instruction {
     BlockZero(BlockZeroInstruction),
@@ -7,10 +14,27 @@ pub enum Instruction {
     Prefixed(PrefixedInstruction),
 }
 
+/* Likely the messiest part of this entire thing so far.
+ * Block Zero is massive compared to the other ones and some of the names
+ * have "collisions so to speak. Here's a little guide to the names:
+ * R16: 16 byte register address of bc, de, hl, or the stack pointer.
+ * b3: A bit index of 3-bits (stored as a u8)
+ * n8: The next 8 bits.
+ * n16: The next 16 bits.
+ */
 #[derive(Debug)]
 pub enum BlockZeroInstruction {
     NOP,
-    LD(u16),
+    LDR16N16(u8),
+    LDR16A(u8),
+    LDA(u16),
+    LDN16SP,
+    INCR16(u8),
+    DECR16(u8),
+    ADDHL(u16),
+    INCR8(u8),
+    DECR8(u8),
+    LDR8N8(u8),
     RLCA,
     RRCA,
     RLA,
@@ -19,6 +43,9 @@ pub enum BlockZeroInstruction {
     CPL,
     SCF,
     CCF,
+    JRN8,
+    JRCONDN8(u8),
+    STOP,
 }
 
 #[derive(Debug)]
@@ -109,9 +136,17 @@ impl Instruction {
         match byte {
             0x00 => Ok(Instruction::BlockZero(BlockZeroInstruction::NOP)),
             0x07 => Ok(Instruction::BlockZero(BlockZeroInstruction::RLCA)),
+            0x08 => Ok(Instruction::BlockZero(BlockZeroInstruction::LDN16SP)),
             0x0F => Ok(Instruction::BlockZero(BlockZeroInstruction::RRCA)),
+            0x10 => Ok(Instruction::BlockZero(BlockZeroInstruction::STOP)),
+            0x17 => Ok(Instruction::BlockZero(BlockZeroInstruction::RLA)),
+            0x18 => Ok(Instruction::BlockZero(BlockZeroInstruction::JRN8)),
+            0x27 => Ok(Instruction::BlockZero(BlockZeroInstruction::DAA)),
+            0x2F => Ok(Instruction::BlockZero(BlockZeroInstruction::CPL)),
+            0x37 => Ok(Instruction::BlockZero(BlockZeroInstruction::SCF)),
+            0x3F => Ok(Instruction::BlockZero(BlockZeroInstruction::CCF)),
             0x31 => Ok(Instruction::BlockZero(BlockZeroInstruction::RRA)),
-            _ => Err(InstructionError::NotFound)
+            _ => Err(InstructionError::NotFound),
         }
     }
 

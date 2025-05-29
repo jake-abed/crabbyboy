@@ -1,5 +1,5 @@
 use crate::gb::instructions;
-use crate::gb::mmu::MMU;
+use crate::gb::mmu::MemoryManagementUnit as MMU; // Use the acronym for space.
 use crate::gb::registers;
 
 pub struct CPU {
@@ -11,7 +11,7 @@ impl CPU {
     pub fn new() -> CPU {
         CPU {
             registers: registers::Registers::new(),
-            memory_bus: MMU::new([0; 65536]),
+            memory_bus: MMU::new(),
         }
     }
 
