@@ -62,6 +62,7 @@ pub enum BlockTwoInstruction {
 #[derive(Debug)]
 pub enum BlockThreeInstruction {
     CP,
+    RST(u8)
 }
 
 #[derive(Debug)]
@@ -146,7 +147,30 @@ impl Instruction {
             0x37 => Ok(Instruction::BlockZero(BlockZeroInstruction::SCF)),
             0x3F => Ok(Instruction::BlockZero(BlockZeroInstruction::CCF)),
             0x31 => Ok(Instruction::BlockZero(BlockZeroInstruction::RRA)),
-            _ => Err(InstructionError::NotFound),
+            _ => Instruction::from_byte_zero_block_u4(byte),
+        }
+    }
+
+    fn from_byte_zero_block_u4(byte: u8) -> Result<Instruction, InstructionError> {
+        let r16: u8 = (byte >> 4) & 0x3;
+        match byte & 0x0F {
+            0x1 => Ok(Instruction::BlockZero(BlockZeroInstruction::LDR16N16(r16))),
+            0x3 => Ok(Instruction::BlockZero(BlockZeroInstruction::INCR16(r16))),
+            _ => Instruction::from_byte_zero_block_u3(byte),
+        }
+    }
+
+    fn from_byte_zero_block_u3(byte: u8) -> Result<Instruction, InstructionError> {
+        let r8: u8 = (byte >> 3) & 0x7;
+        match byte & 0x7 {
+            0x0 => {
+                let cond: u8 = r8 & 0x3;
+                Ok(Instruction::BlockZero(BlockZeroInstruction::JRCONDN8(cond)))
+            }
+            0x3 => Ok(Instruction::BlockZero(BlockZeroInstruction::INCR8(r8))),
+            0xB => Ok(Instruction::BlockZero(BlockZeroInstruction::DECR8(r8))),
+            0x9 => Ok(Instruction::BlockZero(BlockZeroInstruction::LDR8N8(r8))),
+            _ => Err(InstructionError::NotFound)
         }
     }
 
@@ -164,6 +188,10 @@ impl Instruction {
     fn from_byte_three_block(byte: u8) -> Result<Instruction, InstructionError> {
         match byte {
             0xFE => Ok(Instruction::BlockThree(BlockThreeInstruction::CP)),
+            0xFF => {
+                let tgt3 = (byte >> 3) & 0b00111;
+                Ok(Instruction::BlockThree(BlockThreeInstruction::RST(tgt3)))
+            }
             _ => Err(InstructionError::NotFound),
         }
     }
