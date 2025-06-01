@@ -25,4 +25,10 @@ fn main() {
     cpu.cycle();
     cpu.cycle();
     cpu.cycle();
+    cpu.cycle();
+    cpu.cycle();
+    cpu.cycle();
+    cpu.cycle();
+    cpu.cycle();
+    cpu.cycle();
 }

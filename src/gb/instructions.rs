@@ -27,11 +27,11 @@ pub enum BlockZeroInstruction {
     NOP,
     LDR16N16(u8),
     LDR16A(u8),
-    LDA(u16),
+    LDA(u8),
     LDN16SP,
     INCR16(u8),
     DECR16(u8),
-    ADDHL(u16),
+    ADDHL(u8),
     INCR8(u8),
     DECR8(u8),
     LDR8N8(u8),
@@ -155,7 +155,12 @@ impl Instruction {
         let r16: u8 = (byte >> 4) & 0x3;
         match byte & 0x0F {
             0x1 => Ok(Instruction::BlockZero(BlockZeroInstruction::LDR16N16(r16))),
+            0x2 => Ok(Instruction::BlockZero(BlockZeroInstruction::LDR16A(r16))),
             0x3 => Ok(Instruction::BlockZero(BlockZeroInstruction::INCR16(r16))),
+            0x8 => Ok(Instruction::BlockZero(BlockZeroInstruction::LDN16SP)),
+            0x9 => Ok(Instruction::BlockZero(BlockZeroInstruction::ADDHL(r16))),
+            0xA => Ok(Instruction::BlockZero(BlockZeroInstruction::LDA(r16))),
+            0xB => Ok(Instruction::BlockZero(BlockZeroInstruction::DECR16(r16))),
             _ => Instruction::from_byte_zero_block_u3(byte),
         }
     }
@@ -175,8 +180,11 @@ impl Instruction {
     }
 
     fn from_byte_one_block(byte: u8) -> Result<Instruction, InstructionError> {
+        let dest: u8 = (byte >> 3) & 0x7;
+        let source: u8 = byte & 0x7;
         match byte {
-            _ => Err(InstructionError::NotFound),
+            0x76 => Ok(Instruction::BlockOne(BlockOneInstruction::HALT)),
+            _ => Ok(Instruction::BlockOne(BlockOneInstruction::LD{ dest, source })),
         }
     }
 
