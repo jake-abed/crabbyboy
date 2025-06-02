@@ -1,5 +1,5 @@
 use crate::gb::instructions::Instruction as Instr;
-use crate::gb::instructions::{BlockThreeInstruction as B3Inst, BlockZeroInstruction as B0Inst};
+use crate::gb::instructions::{B3Instruction as B3Inst, B0Instruction as B0Inst};
 use crate::gb::mmu::MemoryManagementUnit as MMU; // Use the acronym for space.
 use crate::gb::registers;
 
@@ -36,10 +36,10 @@ impl CPU {
     fn execute(&mut self, byte: u8, prefixed: bool) {
         let instruction = Instr::from_byte(byte, prefixed);
         match instruction {
-            Ok(Instr::BlockZero(B0Inst::LDR16N16(val))) => {
+            Ok(Instr::Block0(B0Inst::LDR16N16(val))) => {
                 println!("{byte} - {instruction:?} - {val}")
             }
-            Ok(Instr::BlockThree(B3Inst::RST(val))) => {
+            Ok(Instr::Block3(B3Inst::RST(val))) => {
                 println!("{byte} - {instruction:?} - {val}")
             }
             Err(_) => {
