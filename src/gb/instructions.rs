@@ -68,8 +68,36 @@ pub enum BlockTwoInstruction {
 
 #[derive(Debug)]
 pub enum BlockThreeInstruction {
-    CP,
-    RST(u8)
+    ADDAN8,
+    ADCAN8,
+    SUBAN8,
+    SBCAN8,
+    ANDAN8,
+    XORAN8,
+    ORAN8,
+    CPAN8,
+    RETCOND(u8),
+    RET,
+    RETI,
+    JPCONDN8(u8),
+    JPN16,
+    JPHL,
+    CALLCONDN8(u8),
+    CALLN16,
+    RST(u8),
+    POP(u8),
+    PUSH(u8),
+    LDHCA,
+    LDHN8A,
+    LDN16A,
+    LDHAC,
+    LDHAN8,
+    LDAN16,
+    ADDSPN8,
+    LDHLSPN8,
+    LDSPHL,
+    DI,
+    EI,
 }
 
 #[derive(Debug)]
@@ -180,8 +208,8 @@ impl Instruction {
                 Ok(Instruction::BlockZero(BlockZeroInstruction::JRCONDN8(cond)))
             }
             0x3 => Ok(Instruction::BlockZero(BlockZeroInstruction::INCR8(r8))),
+            0x6 => Ok(Instruction::BlockZero(BlockZeroInstruction::LDR8N8(r8))),
             0xB => Ok(Instruction::BlockZero(BlockZeroInstruction::DECR8(r8))),
-            0x9 => Ok(Instruction::BlockZero(BlockZeroInstruction::LDR8N8(r8))),
             _ => Err(InstructionError::NotFound)
         }
     }
@@ -204,16 +232,55 @@ impl Instruction {
             0x12 => Ok(Instruction::BlockTwo(BlockTwoInstruction::SUBA(operand))),
             0x13 => Ok(Instruction::BlockTwo(BlockTwoInstruction::SBCA(operand))),
             0x14 => Ok(Instruction::BlockTwo(BlockTwoInstruction::ANDA(operand))),
+            0x15 => Ok(Instruction::BlockTwo(BlockTwoInstruction::XORA(operand))),
+            0x16 => Ok(Instruction::BlockTwo(BlockTwoInstruction::ORA(operand))),
+            0x17 => Ok(Instruction::BlockTwo(BlockTwoInstruction::CPA(operand))),
             _ => Err(InstructionError::NotFound),
         }
     }
     fn from_byte_three_block(byte: u8) -> Result<Instruction, InstructionError> {
         match byte {
-            0xFE => Ok(Instruction::BlockThree(BlockThreeInstruction::CP)),
-            0xFF => {
-                let tgt3 = (byte >> 3) & 0b00111;
-                Ok(Instruction::BlockThree(BlockThreeInstruction::RST(tgt3)))
-            }
+            0xC3 => Ok(Instruction::BlockThree(BlockThreeInstruction::JPN16)),
+            0xC6 => Ok(Instruction::BlockThree(BlockThreeInstruction::ADDAN8)),
+            0xC9 => Ok(Instruction::BlockThree(BlockThreeInstruction::RET)),
+            0xCD => Ok(Instruction::BlockThree(BlockThreeInstruction::CALLN16)),
+            0xCE => Ok(Instruction::BlockThree(BlockThreeInstruction::ADCAN8)),
+            0xD6 => Ok(Instruction::BlockThree(BlockThreeInstruction::SUBAN8)),
+            0xD9 => Ok(Instruction::BlockThree(BlockThreeInstruction::RETI)),
+            0xDE => Ok(Instruction::BlockThree(BlockThreeInstruction::SBCAN8)),
+            0xE0 => Ok(Instruction::BlockThree(BlockThreeInstruction::LDHN8A)),
+            0xE2 => Ok(Instruction::BlockThree(BlockThreeInstruction::LDHCA)),
+            0xE6 => Ok(Instruction::BlockThree(BlockThreeInstruction::ANDAN8)),
+            0xE8 => Ok(Instruction::BlockThree(BlockThreeInstruction::ADDSPN8)),
+            0xE9 => Ok(Instruction::BlockThree(BlockThreeInstruction::JPHL)),
+            0xEA => Ok(Instruction::BlockThree(BlockThreeInstruction::LDN16A)),
+            0xEE => Ok(Instruction::BlockThree(BlockThreeInstruction::XORAN8)),
+            0xF0 => Ok(Instruction::BlockThree(BlockThreeInstruction::LDHAN8)),
+            0xF2 => Ok(Instruction::BlockThree(BlockThreeInstruction::LDHAC)),
+            0xF3 => Ok(Instruction::BlockThree(BlockThreeInstruction::DI)),
+            0xF6 => Ok(Instruction::BlockThree(BlockThreeInstruction::ORAN8)),
+            0xF8 => Ok(Instruction::BlockThree(BlockThreeInstruction::LDHLSPN8)),
+            0xF9 => Ok(Instruction::BlockThree(BlockThreeInstruction::LDSPHL)),
+            0xFA => Ok(Instruction::BlockThree(BlockThreeInstruction::LDAN16)),
+            0xFB => Ok(Instruction::BlockThree(BlockThreeInstruction::EI)),
+            0xFE => Ok(Instruction::BlockThree(BlockThreeInstruction::CPAN8)),
+            _ => Instruction::from_byte_three_block_u3(byte),
+        }
+    }
+
+    fn from_byte_three_block_u3(byte: u8) -> Result<Instruction, InstructionError> {
+        let cond: u8 = (byte >> 3) & 0x3;
+        let register: u8 = (byte >> 4) &0x3;
+        let tgt3: u8 = (byte >> 3) & 0x7;
+
+        let bottom_three: u8 = byte & 0x7;
+        match bottom_three {
+            0x0 => Ok(Instruction::BlockThree(BlockThreeInstruction::RETCOND(cond))),
+            0x1 => Ok(Instruction::BlockThree(BlockThreeInstruction::POP(register))),
+            0x2 => Ok(Instruction::BlockThree(BlockThreeInstruction::JPCONDN8(cond))),
+            0x4 => Ok(Instruction::BlockThree(BlockThreeInstruction::CALLCONDN8(cond))),
+            0x5 => Ok(Instruction::BlockThree(BlockThreeInstruction::PUSH(register))),
+            0x7 => Ok(Instruction::BlockThree(BlockThreeInstruction::RST(tgt3))),
             _ => Err(InstructionError::NotFound),
         }
     }
