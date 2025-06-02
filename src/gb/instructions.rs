@@ -56,7 +56,14 @@ pub enum BlockOneInstruction {
 
 #[derive(Debug)]
 pub enum BlockTwoInstruction {
-    // Add instructions
+    ADDA(u8),
+    ADCA(u8),
+    SUBA(u8),
+    SBCA(u8),
+    ANDA(u8,),
+    XORA(u8),
+    ORA(u8),
+    CPA(u8),
 }
 
 #[derive(Debug)]
@@ -189,7 +196,14 @@ impl Instruction {
     }
 
     fn from_byte_two_block(byte: u8) -> Result<Instruction, InstructionError> {
-        match byte {
+        let first_five: u8 = byte >> 3;
+        let operand: u8 = byte & 0x7;
+        match first_five {
+            0x10 => Ok(Instruction::BlockTwo(BlockTwoInstruction::ADDA(operand))),
+            0x11 => Ok(Instruction::BlockTwo(BlockTwoInstruction::ADCA(operand))),
+            0x12 => Ok(Instruction::BlockTwo(BlockTwoInstruction::SUBA(operand))),
+            0x13 => Ok(Instruction::BlockTwo(BlockTwoInstruction::SBCA(operand))),
+            0x14 => Ok(Instruction::BlockTwo(BlockTwoInstruction::ANDA(operand))),
             _ => Err(InstructionError::NotFound),
         }
     }
