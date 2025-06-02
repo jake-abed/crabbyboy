@@ -6,6 +6,7 @@ use crate::gb::registers;
 pub struct CPU {
     registers: registers::Registers,
     pub memory_bus: MMU,
+    pub end: bool,
 }
 
 impl CPU {
@@ -13,6 +14,7 @@ impl CPU {
         CPU {
             registers: registers::Registers::new(),
             memory_bus: MMU::new(),
+            end: false,
         }
     }
 
@@ -32,14 +34,18 @@ impl CPU {
     }
 
     fn execute(&mut self, byte: u8, prefixed: bool) {
-        let instruction = Instr::from_byte(byte, prefixed).ok();
+        let instruction = Instr::from_byte(byte, prefixed);
         match instruction {
-            Some(Instr::BlockZero(B0Inst::LDR16N16(val))) => {
+            Ok(Instr::BlockZero(B0Inst::LDR16N16(val))) => {
                 println!("{byte} - {instruction:?} - {val}")
             }
-            Some(Instr::BlockThree(B3Inst::RST(val))) => {
+            Ok(Instr::BlockThree(B3Inst::RST(val))) => {
                 println!("{byte} - {instruction:?} - {val}")
             }
+            Err(_) => {
+                self.end = true;
+                println!("ending! {instruction:?} - byte: {byte:x}")
+            },
             _ => println!("{byte} - {instruction:?}"),
         }
     }

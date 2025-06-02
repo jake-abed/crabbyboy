@@ -106,6 +106,10 @@ pub enum PrefixedInstruction {
     RRC(u8),
     RL(u8),
     RR(u8),
+    SLA(u8),
+    SRA(u8),
+    SWAP(u8),
+    SRL(u8),
     BIT { b3: u8, operand: u8 },
     RES { b3: u8, operand: u8 },
     SET { b3: u8, operand: u8 },
@@ -120,6 +124,7 @@ pub enum InstructionError {
 impl Instruction {
     pub fn from_byte(byte: u8, prefixed: bool) -> Result<Instruction, InstructionError> {
         if prefixed {
+            println!("prefixed");
             Instruction::from_byte_prefixed(byte)
         } else {
             Instruction::from_byte_not_cb(byte)
@@ -131,16 +136,16 @@ impl Instruction {
         let operand: u8 = (byte & 0x0F) as u8;
         let b3: u8 = (byte >> 3) & 0b00111;
         match block {
-            0x00 => Instruction::from_cb_zero_block(byte, operand),
-            0x01 => Ok(Instruction::Prefixed(PrefixedInstruction::BIT {
+            0b00 => Instruction::from_cb_zero_block(byte, operand),
+            0b01 => Ok(Instruction::Prefixed(PrefixedInstruction::BIT {
                 b3,
                 operand,
             })),
-            0x10 => Ok(Instruction::Prefixed(PrefixedInstruction::RES {
+            0b10 => Ok(Instruction::Prefixed(PrefixedInstruction::RES {
                 b3,
                 operand,
             })),
-            0x11 => Ok(Instruction::Prefixed(PrefixedInstruction::SET {
+            0b11 => Ok(Instruction::Prefixed(PrefixedInstruction::SET {
                 b3,
                 operand,
             })),
@@ -149,10 +154,17 @@ impl Instruction {
     }
 
     fn from_cb_zero_block(byte: u8, operand: u8) -> Result<Instruction, InstructionError> {
-        let prefix = byte >> 3;
-        match prefix {
-            0x000 => Ok(Instruction::Prefixed(PrefixedInstruction::RLC(operand))),
-            0x001 => Ok(Instruction::Prefixed(PrefixedInstruction::RRC(operand))),
+        let u5: u8 = byte >> 3;
+        
+        match u5 {
+            0x00 => Ok(Instruction::Prefixed(PrefixedInstruction::RLC(operand))),
+            0x01 => Ok(Instruction::Prefixed(PrefixedInstruction::RRC(operand))),
+            0x02 => Ok(Instruction::Prefixed(PrefixedInstruction::RL(operand))),
+            0x03 => Ok(Instruction::Prefixed(PrefixedInstruction::RR(operand))),
+            0x04 => Ok(Instruction::Prefixed(PrefixedInstruction::SLA(operand))),
+            0x05 => Ok(Instruction::Prefixed(PrefixedInstruction::SRA(operand))),
+            0x06 => Ok(Instruction::Prefixed(PrefixedInstruction::SWAP(operand))),
+            0x07 => Ok(Instruction::Prefixed(PrefixedInstruction::SRL(operand))),
             _ => Err(InstructionError::NotFound),
         }
     }
@@ -177,11 +189,11 @@ impl Instruction {
             0x10 => Ok(Instruction::BlockZero(BlockZeroInstruction::STOP)),
             0x17 => Ok(Instruction::BlockZero(BlockZeroInstruction::RLA)),
             0x18 => Ok(Instruction::BlockZero(BlockZeroInstruction::JRN8)),
+            0x1F => Ok(Instruction::BlockZero(BlockZeroInstruction::RRA)),
             0x27 => Ok(Instruction::BlockZero(BlockZeroInstruction::DAA)),
             0x2F => Ok(Instruction::BlockZero(BlockZeroInstruction::CPL)),
             0x37 => Ok(Instruction::BlockZero(BlockZeroInstruction::SCF)),
             0x3F => Ok(Instruction::BlockZero(BlockZeroInstruction::CCF)),
-            0x31 => Ok(Instruction::BlockZero(BlockZeroInstruction::RRA)),
             _ => Instruction::from_byte_zero_block_u4(byte),
         }
     }
@@ -207,9 +219,9 @@ impl Instruction {
                 let cond: u8 = r8 & 0x3;
                 Ok(Instruction::BlockZero(BlockZeroInstruction::JRCONDN8(cond)))
             }
-            0x3 => Ok(Instruction::BlockZero(BlockZeroInstruction::INCR8(r8))),
+            0x4 => Ok(Instruction::BlockZero(BlockZeroInstruction::INCR8(r8))),
+            0x5 => Ok(Instruction::BlockZero(BlockZeroInstruction::DECR8(r8))),
             0x6 => Ok(Instruction::BlockZero(BlockZeroInstruction::LDR8N8(r8))),
-            0xB => Ok(Instruction::BlockZero(BlockZeroInstruction::DECR8(r8))),
             _ => Err(InstructionError::NotFound)
         }
     }
