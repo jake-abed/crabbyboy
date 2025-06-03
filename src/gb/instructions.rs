@@ -26,8 +26,8 @@ pub enum Instruction {
 pub enum B0Instruction {
     NOP,
     LDR16N16(u8),
-    LDR16A(u8),
-    LDA(u8),
+    LDR16(u8),
+    LD(u8),
     LDN16SP,
     INCR16(u8),
     DECR16(u8),
@@ -35,10 +35,10 @@ pub enum B0Instruction {
     INCR8(u8),
     DECR8(u8),
     LDR8N8(u8),
-    RLCA,
-    RRCA,
-    RLA,
-    RRA,
+    RLC,
+    RRC,
+    RL,
+    RR,
     DAA,
     CPL,
     SCF,
@@ -56,26 +56,26 @@ pub enum B1Instruction {
 
 #[derive(Debug)]
 pub enum B2Instruction {
-    ADDA(u8),
-    ADCA(u8),
-    SUBA(u8),
-    SBCA(u8),
-    ANDA(u8,),
-    XORA(u8),
-    ORA(u8),
-    CPA(u8),
+    ADD(u8),
+    ADC(u8),
+    SUB(u8),
+    SBC(u8),
+    AND(u8),
+    XOR(u8),
+    OR(u8),
+    CP(u8),
 }
 
 #[derive(Debug)]
 pub enum B3Instruction {
-    ADDAN8,
-    ADCAN8,
-    SUBAN8,
-    SBCAN8,
-    ANDAN8,
-    XORAN8,
-    ORAN8,
-    CPAN8,
+    ADDN8,
+    ADCN8,
+    SUBN8,
+    SBCN8,
+    ANDN8,
+    XORN8,
+    ORN8,
+    CPN8,
     RETCOND(u8),
     RET,
     RETI,
@@ -87,12 +87,9 @@ pub enum B3Instruction {
     RST(u8),
     POP(u8),
     PUSH(u8),
-    LDHCA,
-    LDHN8A,
-    LDN16A,
-    LDHAC,
-    LDHAN8,
-    LDAN16,
+    LDHC,
+    LDHN8,
+    LDN16,
     ADDSPN8,
     LDHLSPN8,
     LDSPHL,
@@ -106,8 +103,8 @@ pub enum PrefixedInstruction {
     RRC(u8),
     RL(u8),
     RR(u8),
-    SLA(u8),
-    SRA(u8),
+    SL(u8),
+    SR(u8),
     SWAP(u8),
     SRL(u8),
     BIT { b3: u8, operand: u8 },
@@ -122,6 +119,10 @@ pub enum InstructionError {
 }
 
 impl Instruction {
+    /* from_byte is the publicly exposed method that allows for a single byte
+     * to be turned into an Instruction enum. It splits paths depending on
+     * whether or not an instruction is marked as prefixed (0xCB) or not.
+     */
     pub fn from_byte(byte: u8, prefixed: bool) -> Result<Instruction, InstructionError> {
         if prefixed {
             println!("prefixed");
@@ -131,10 +132,16 @@ impl Instruction {
         }
     }
 
+    /* from_byte_prefixed starts with two assumptions: most variety in prefixed
+     * instructions happens in the zero block, so that should break out into
+     * a helper function and, second, all instructions in the prefixed section
+     * use the lowest bits of the byte as the operand.
+     *
+     */
     fn from_byte_prefixed(byte: u8) -> Result<Instruction, InstructionError> {
         let block: u8 = byte >> 6;
-        let operand: u8 = (byte & 0x0F) as u8;
-        let b3: u8 = (byte >> 3) & 0b00111;
+        let operand: u8 = (byte & 0x7) as u8;
+        let b3: u8 = (byte >> 3) & 0x7;
         match block {
             0b00 => Instruction::from_cb_zero_block(byte, operand),
             0b01 => Ok(Instruction::Prefixed(PrefixedInstruction::BIT {
@@ -155,14 +162,14 @@ impl Instruction {
 
     fn from_cb_zero_block(byte: u8, operand: u8) -> Result<Instruction, InstructionError> {
         let u5: u8 = byte >> 3;
-        
+
         match u5 {
             0x00 => Ok(Instruction::Prefixed(PrefixedInstruction::RLC(operand))),
             0x01 => Ok(Instruction::Prefixed(PrefixedInstruction::RRC(operand))),
             0x02 => Ok(Instruction::Prefixed(PrefixedInstruction::RL(operand))),
             0x03 => Ok(Instruction::Prefixed(PrefixedInstruction::RR(operand))),
-            0x04 => Ok(Instruction::Prefixed(PrefixedInstruction::SLA(operand))),
-            0x05 => Ok(Instruction::Prefixed(PrefixedInstruction::SRA(operand))),
+            0x04 => Ok(Instruction::Prefixed(PrefixedInstruction::SL(operand))),
+            0x05 => Ok(Instruction::Prefixed(PrefixedInstruction::SR(operand))),
             0x06 => Ok(Instruction::Prefixed(PrefixedInstruction::SWAP(operand))),
             0x07 => Ok(Instruction::Prefixed(PrefixedInstruction::SRL(operand))),
             _ => Err(InstructionError::NotFound),
@@ -183,13 +190,13 @@ impl Instruction {
     fn from_byte_zero_block(byte: u8) -> Result<Instruction, InstructionError> {
         match byte {
             0x00 => Ok(Instruction::Block0(B0Instruction::NOP)),
-            0x07 => Ok(Instruction::Block0(B0Instruction::RLCA)),
+            0x07 => Ok(Instruction::Block0(B0Instruction::RLC)),
             0x08 => Ok(Instruction::Block0(B0Instruction::LDN16SP)),
-            0x0F => Ok(Instruction::Block0(B0Instruction::RRCA)),
+            0x0F => Ok(Instruction::Block0(B0Instruction::RRC)),
             0x10 => Ok(Instruction::Block0(B0Instruction::STOP)),
-            0x17 => Ok(Instruction::Block0(B0Instruction::RLA)),
+            0x17 => Ok(Instruction::Block0(B0Instruction::RL)),
             0x18 => Ok(Instruction::Block0(B0Instruction::JRN8)),
-            0x1F => Ok(Instruction::Block0(B0Instruction::RRA)),
+            0x1F => Ok(Instruction::Block0(B0Instruction::RR)),
             0x27 => Ok(Instruction::Block0(B0Instruction::DAA)),
             0x2F => Ok(Instruction::Block0(B0Instruction::CPL)),
             0x37 => Ok(Instruction::Block0(B0Instruction::SCF)),
@@ -202,11 +209,11 @@ impl Instruction {
         let r16: u8 = (byte >> 4) & 0x3;
         match byte & 0x0F {
             0x1 => Ok(Instruction::Block0(B0Instruction::LDR16N16(r16))),
-            0x2 => Ok(Instruction::Block0(B0Instruction::LDR16A(r16))),
+            0x2 => Ok(Instruction::Block0(B0Instruction::LDR16(r16))),
             0x3 => Ok(Instruction::Block0(B0Instruction::INCR16(r16))),
             0x8 => Ok(Instruction::Block0(B0Instruction::LDN16SP)),
             0x9 => Ok(Instruction::Block0(B0Instruction::ADDHL(r16))),
-            0xA => Ok(Instruction::Block0(B0Instruction::LDA(r16))),
+            0xA => Ok(Instruction::Block0(B0Instruction::LD(r16))),
             0xB => Ok(Instruction::Block0(B0Instruction::DECR16(r16))),
             _ => Instruction::from_byte_zero_block_u3(byte),
         }
@@ -222,7 +229,7 @@ impl Instruction {
             0x4 => Ok(Instruction::Block0(B0Instruction::INCR8(r8))),
             0x5 => Ok(Instruction::Block0(B0Instruction::DECR8(r8))),
             0x6 => Ok(Instruction::Block0(B0Instruction::LDR8N8(r8))),
-            _ => Err(InstructionError::NotFound)
+            _ => Err(InstructionError::NotFound),
         }
     }
 
@@ -231,7 +238,7 @@ impl Instruction {
         let source: u8 = byte & 0x7;
         match byte {
             0x76 => Ok(Instruction::Block1(B1Instruction::HALT)),
-            _ => Ok(Instruction::Block1(B1Instruction::LD{ dest, source })),
+            _ => Ok(Instruction::Block1(B1Instruction::LD { dest, source })),
         }
     }
 
@@ -239,50 +246,50 @@ impl Instruction {
         let first_five: u8 = byte >> 3;
         let operand: u8 = byte & 0x7;
         match first_five {
-            0x10 => Ok(Instruction::Block2(B2Instruction::ADDA(operand))),
-            0x11 => Ok(Instruction::Block2(B2Instruction::ADCA(operand))),
-            0x12 => Ok(Instruction::Block2(B2Instruction::SUBA(operand))),
-            0x13 => Ok(Instruction::Block2(B2Instruction::SBCA(operand))),
-            0x14 => Ok(Instruction::Block2(B2Instruction::ANDA(operand))),
-            0x15 => Ok(Instruction::Block2(B2Instruction::XORA(operand))),
-            0x16 => Ok(Instruction::Block2(B2Instruction::ORA(operand))),
-            0x17 => Ok(Instruction::Block2(B2Instruction::CPA(operand))),
+            0x10 => Ok(Instruction::Block2(B2Instruction::ADD(operand))),
+            0x11 => Ok(Instruction::Block2(B2Instruction::ADC(operand))),
+            0x12 => Ok(Instruction::Block2(B2Instruction::SUB(operand))),
+            0x13 => Ok(Instruction::Block2(B2Instruction::SBC(operand))),
+            0x14 => Ok(Instruction::Block2(B2Instruction::AND(operand))),
+            0x15 => Ok(Instruction::Block2(B2Instruction::XOR(operand))),
+            0x16 => Ok(Instruction::Block2(B2Instruction::OR(operand))),
+            0x17 => Ok(Instruction::Block2(B2Instruction::CP(operand))),
             _ => Err(InstructionError::NotFound),
         }
     }
     fn from_byte_three_block(byte: u8) -> Result<Instruction, InstructionError> {
         match byte {
             0xC3 => Ok(Instruction::Block3(B3Instruction::JPN16)),
-            0xC6 => Ok(Instruction::Block3(B3Instruction::ADDAN8)),
+            0xC6 => Ok(Instruction::Block3(B3Instruction::ADDN8)),
             0xC9 => Ok(Instruction::Block3(B3Instruction::RET)),
             0xCD => Ok(Instruction::Block3(B3Instruction::CALLN16)),
-            0xCE => Ok(Instruction::Block3(B3Instruction::ADCAN8)),
-            0xD6 => Ok(Instruction::Block3(B3Instruction::SUBAN8)),
+            0xCE => Ok(Instruction::Block3(B3Instruction::ADCN8)),
+            0xD6 => Ok(Instruction::Block3(B3Instruction::SUBN8)),
             0xD9 => Ok(Instruction::Block3(B3Instruction::RETI)),
-            0xDE => Ok(Instruction::Block3(B3Instruction::SBCAN8)),
-            0xE0 => Ok(Instruction::Block3(B3Instruction::LDHN8A)),
-            0xE2 => Ok(Instruction::Block3(B3Instruction::LDHCA)),
-            0xE6 => Ok(Instruction::Block3(B3Instruction::ANDAN8)),
+            0xDE => Ok(Instruction::Block3(B3Instruction::SBCN8)),
+            0xE0 => Ok(Instruction::Block3(B3Instruction::LDHN8)),
+            0xE2 => Ok(Instruction::Block3(B3Instruction::LDHC)),
+            0xE6 => Ok(Instruction::Block3(B3Instruction::ANDN8)),
             0xE8 => Ok(Instruction::Block3(B3Instruction::ADDSPN8)),
             0xE9 => Ok(Instruction::Block3(B3Instruction::JPHL)),
-            0xEA => Ok(Instruction::Block3(B3Instruction::LDN16A)),
-            0xEE => Ok(Instruction::Block3(B3Instruction::XORAN8)),
-            0xF0 => Ok(Instruction::Block3(B3Instruction::LDHAN8)),
-            0xF2 => Ok(Instruction::Block3(B3Instruction::LDHAC)),
+            0xEA => Ok(Instruction::Block3(B3Instruction::LDN16)),
+            0xEE => Ok(Instruction::Block3(B3Instruction::XORN8)),
+            0xF0 => Ok(Instruction::Block3(B3Instruction::LDHN8)),
+            0xF2 => Ok(Instruction::Block3(B3Instruction::LDHC)),
             0xF3 => Ok(Instruction::Block3(B3Instruction::DI)),
-            0xF6 => Ok(Instruction::Block3(B3Instruction::ORAN8)),
+            0xF6 => Ok(Instruction::Block3(B3Instruction::ORN8)),
             0xF8 => Ok(Instruction::Block3(B3Instruction::LDHLSPN8)),
             0xF9 => Ok(Instruction::Block3(B3Instruction::LDSPHL)),
-            0xFA => Ok(Instruction::Block3(B3Instruction::LDAN16)),
+            0xFA => Ok(Instruction::Block3(B3Instruction::LDN16)),
             0xFB => Ok(Instruction::Block3(B3Instruction::EI)),
-            0xFE => Ok(Instruction::Block3(B3Instruction::CPAN8)),
+            0xFE => Ok(Instruction::Block3(B3Instruction::CPN8)),
             _ => Instruction::from_byte_three_block_u3(byte),
         }
     }
 
     fn from_byte_three_block_u3(byte: u8) -> Result<Instruction, InstructionError> {
         let cond: u8 = (byte >> 3) & 0x3;
-        let register: u8 = (byte >> 4) &0x3;
+        let register: u8 = (byte >> 4) & 0x3;
         let tgt3: u8 = (byte >> 3) & 0x7;
 
         let bottom_three: u8 = byte & 0x7;

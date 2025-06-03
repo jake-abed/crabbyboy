@@ -39,6 +39,9 @@ impl CPU {
             Ok(Instr::Block0(B0Inst::LDR16N16(val))) => {
                 println!("{byte} - {instruction:?} - {val}")
             }
+            Ok(Instr::Block0(B0Inst::LDR16(val))) => {
+                println!("{byte} - {instruction:?} - {val}")
+            }
             Ok(Instr::Block3(B3Inst::RST(val))) => {
                 println!("{byte} - {instruction:?} - {val}")
             }
