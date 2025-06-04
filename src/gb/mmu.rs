@@ -1,5 +1,6 @@
 // This is a draft version of the MMU. Obviously not the real thing,
 // but we need to start somewhere.
+#[derive(Debug)]
 pub struct MemoryManagementUnit {
     memory: [u8; 65536],
 }

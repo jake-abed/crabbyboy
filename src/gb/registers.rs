@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct Registers {
     pub a: u8,
     pub b: u8,
@@ -9,6 +10,99 @@ pub struct Registers {
     pub l: u8,
     pub sp: u16,
     pub pc: u16,
+}
+
+#[repr(u8)]
+pub enum R8 {
+    B,
+    C,
+    D,
+    E,
+    H,
+    L,
+    HL,
+    A,
+}
+
+impl TryFrom<u8> for R8 {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(R8::B),
+            1 => Ok(R8::C),
+            2 => Ok(R8::D),
+            3 => Ok(R8::E),
+            4 => Ok(R8::H),
+            5 => Ok(R8::L),
+            6 => Ok(R8::HL),
+            7 => Ok(R8::A),
+            _ => Err(()),
+        }
+    }
+
+}
+
+#[repr(u8)]
+pub enum R16 {
+    BC,
+    DE,
+    HL,
+    SP,
+}
+
+impl TryFrom<u8> for R16 {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(R16::BC),
+            1 => Ok(R16::DE),
+            2 => Ok(R16::HL),
+            3 => Ok(R16::SP),
+            _ => Err(()),
+        }
+    }
+
+}
+
+#[repr(u8)]
+pub enum R16Stk {
+    BC,
+    DE,
+    HL,
+    AF,
+}
+
+#[repr(u8)]
+pub enum R16Mem {
+    BC,
+    DE,
+    HLI,
+    HLD,
+}
+
+impl TryFrom<u8> for R16Mem {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(R16Mem::BC),
+            1 => Ok(R16Mem::DE),
+            2 => Ok(R16Mem::HLI),
+            3 => Ok(R16Mem::HLD),
+            _ => Err(()),
+        }
+    }
+
+}
+
+#[repr(u8)]
+pub enum Cond {
+    NZ,
+    Z,
+    NC,
+    C,
 }
 
 enum FlagBytePositions {
@@ -35,6 +129,7 @@ impl std::ops::Shl<FlagBytePositions> for u8 {
 }
 
 // 0x11110000 -> where the first four bits correspond to `zshc` in the struct.
+#[derive(Debug)]
 struct FlagsRegisters {
     z: bool, // Zero
     s: bool, // Subtract
@@ -44,7 +139,7 @@ struct FlagsRegisters {
 
 impl FlagsRegisters {
     fn new() -> FlagsRegisters {
-        FlagsRegisters{
+        FlagsRegisters {
             z: false,
             s: false,
             h: false,
