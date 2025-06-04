@@ -1,10 +1,7 @@
 use crate::gb::instructions::Instruction as Instr;
 use crate::gb::instructions::{
-    B0Instruction as B0Inst,
-    B1Instruction as B1Inst,
-    B2Instruction as B2Inst,
-    B3Instruction as B3Inst,
-    PrefixedInstruction as PrefixedInst,
+    B0Instruction as B0Inst, B1Instruction as B1Inst, B2Instruction as B2Inst,
+    B3Instruction as B3Inst, PrefixedInstruction as PrefixedInst,
 };
 use crate::gb::mmu::MemoryManagementUnit as MMU; // Use the acronym for space.
 use crate::gb::registers as reg;
@@ -80,13 +77,19 @@ impl CPU {
             B0Inst::LDA(source) => self.lda(source),
             B0Inst::LDN16SP => self.ldn16sp(),
             B0Inst::INCR16(operand) => self.incr16(operand),
+            B0Inst::DECR16(operand) => self.decr16(operand),
+            B0Inst::LDR8N8(dest) => self.ldr8n8(dest),
+            B0Inst::RLCA => self.rlca(),
+            B0Inst::RRCA => self.rrca(),
+            B0Inst::RLA => self.rla(),
+            B0Inst::RRA => self.rra(),
             _ => println!("Idk"),
         }
     }
 
     fn execute_block_one(&mut self, instruction: B1Inst) {
         match instruction {
-            B1Inst::LD{dest, source} => println!("GOT LD: {dest} - {source}"),
+            B1Inst::LD { dest, source } => println!("GOT LD: {dest} - {source}"),
             _ => println!("Idk"),
         }
     }
@@ -112,6 +115,7 @@ impl CPU {
         }
     }
 
+    // Begin Block 0 Helper Functions
     fn ldr16n16(&mut self, dest: u8) {
         let n16: u16 = self.fetch_n16();
         match reg::R16::try_from(dest) {
@@ -126,21 +130,23 @@ impl CPU {
     fn ldr16(&mut self, dest: u8) {
         match reg::R16Mem::try_from(dest) {
             Ok(reg::R16Mem::BC) => {
-                self.memory_bus.set_byte(self.registers.bc(), self.registers.a);
-            },
+                self.memory_bus
+                    .set_byte(self.registers.bc(), self.registers.a);
+            }
             Ok(reg::R16Mem::DE) => {
-                self.memory_bus.set_byte(self.registers.de(), self.registers.a);
-            },
+                self.memory_bus
+                    .set_byte(self.registers.de(), self.registers.a);
+            }
             Ok(reg::R16Mem::HLI) => {
                 let hl = self.registers.hl();
                 self.memory_bus.set_byte(hl, self.registers.a);
                 self.registers.set_hl(hl.wrapping_add(1));
-            },
+            }
             Ok(reg::R16Mem::HLD) => {
                 let hl = self.registers.hl();
                 self.memory_bus.set_byte(hl, self.registers.a);
                 self.registers.set_hl(hl.wrapping_sub(1));
-            },
+            }
             Err(err) => panic!("{err:?}"),
         }
     }
@@ -149,20 +155,20 @@ impl CPU {
         match reg::R16Mem::try_from(source) {
             Ok(reg::R16Mem::BC) => {
                 self.registers.a = self.memory_bus.read_byte(self.registers.bc())
-            },
+            }
             Ok(reg::R16Mem::DE) => {
                 self.registers.a = self.memory_bus.read_byte(self.registers.de())
-            },
+            }
             Ok(reg::R16Mem::HLI) => {
                 let hl = self.registers.hl();
                 self.registers.a = self.memory_bus.read_byte(hl);
                 self.registers.set_hl(hl.wrapping_add(1));
-            },
+            }
             Ok(reg::R16Mem::HLD) => {
                 let hl = self.registers.hl();
                 self.registers.a = self.memory_bus.read_byte(hl);
                 self.registers.set_hl(hl.wrapping_sub(1));
-            },
+            }
             Err(err) => panic!("{err:?}"),
         }
     }
@@ -180,20 +186,102 @@ impl CPU {
             Ok(reg::R16::BC) => {
                 let current_bc = self.registers.bc();
                 self.registers.set_bc(current_bc.wrapping_add(1));
-            },
+            }
             Ok(reg::R16::DE) => {
                 let current_de = self.registers.de();
                 self.registers.set_de(current_de.wrapping_add(1));
-            },
+            }
             Ok(reg::R16::HL) => {
                 let current_hl = self.registers.hl();
                 self.registers.set_hl(current_hl.wrapping_add(1));
-            },
+            }
             Ok(reg::R16::SP) => {
                 let current_sp = self.registers.sp;
                 self.registers.sp = current_sp.wrapping_add(1);
-            },
+            }
             Err(err) => panic!("{err:?}"),
         }
     }
+
+    fn decr16(&mut self, operand: u8) {
+        match reg::R16::try_from(operand) {
+            Ok(reg::R16::BC) => {
+                let current_bc = self.registers.bc();
+                self.registers.set_bc(current_bc.wrapping_sub(1));
+            }
+            Ok(reg::R16::DE) => {
+                let current_de = self.registers.de();
+                self.registers.set_de(current_de.wrapping_sub(1));
+            }
+            Ok(reg::R16::HL) => {
+                let current_hl = self.registers.hl();
+                self.registers.set_hl(current_hl.wrapping_sub(1));
+            }
+            Ok(reg::R16::SP) => {
+                let current_sp = self.registers.sp;
+                self.registers.sp = current_sp.wrapping_sub(1);
+            }
+            Err(err) => panic!("{err:?}"),
+        }
+    }
+
+    fn ldr8n8(&mut self, dest: u8) {
+        let n8: u8 = self.fetch();
+        match reg::R8::try_from(dest) {
+            Ok(reg::R8::B) => self.registers.b = n8,
+            Ok(reg::R8::C) => self.registers.c = n8,
+            Ok(reg::R8::D) => self.registers.d = n8,
+            Ok(reg::R8::E) => self.registers.e = n8,
+            Ok(reg::R8::H) => self.registers.h = n8,
+            Ok(reg::R8::L) => self.registers.l = n8,
+            Ok(reg::R8::HL) => {
+                self.memory_bus.set_byte(self.registers.hl(), n8);
+            }
+            Ok(reg::R8::A) => self.registers.a = n8,
+            Err(err) => panic!("{err:?}"),
+        }
+    }
+
+    fn rlca(&mut self) {
+        let bit: u8 = self.registers.a >> 7;
+        let shifted: u8 = (self.registers.a & 0x7F) << 1;
+        self.registers.f.h = false;
+        self.registers.f.z = false;
+        self.registers.f.s = false;
+        self.registers.f.c = bit > 0;
+        self.registers.a = shifted | bit;
+    }
+
+    fn rrca(&mut self) {
+        let bit: u8 = self.registers.a & 0x01;
+        let shifted: u8 = (self.registers.a & 0xFE) >> 1;
+        self.registers.f.h = false;
+        self.registers.f.z = false;
+        self.registers.f.s = false;
+        self.registers.f.c = bit > 0;
+        self.registers.a = shifted | (bit << 7);
+    }
+
+    fn rla(&mut self) {
+        let bit: u8 = self.registers.a >> 7;
+        let shifted: u8 = (self.registers.a & 0x7F) << 1;
+        let c: u8 = if self.registers.f.c { 1 } else { 0 };
+        self.registers.f.h = false;
+        self.registers.f.z = false;
+        self.registers.f.s = false;
+        self.registers.f.c = bit > 0;
+        self.registers.a = shifted | c;
+    }
+
+    fn rra(&mut self) {
+        let bit: u8 = self.registers.a & 0x01;
+        let shifted: u8 = (self.registers.a & 0xFE) >> 1;
+        let c: u8 = if self.registers.f.c { 1 } else { 0 };
+        self.registers.f.h = false;
+        self.registers.f.z = false;
+        self.registers.f.s = false;
+        self.registers.f.c = bit > 0;
+        self.registers.a = shifted | (c << 7);
+    }
+    // Begin Block 1 Helper Functions
 }

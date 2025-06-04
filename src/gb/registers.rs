@@ -130,11 +130,11 @@ impl std::ops::Shl<FlagBytePositions> for u8 {
 
 // 0x11110000 -> where the first four bits correspond to `zshc` in the struct.
 #[derive(Debug)]
-struct FlagsRegisters {
-    z: bool, // Zero
-    s: bool, // Subtract
-    h: bool, // Half Carry
-    c: bool, // Carry
+pub struct FlagsRegisters {
+    pub z: bool, // Zero
+    pub s: bool, // Subtract
+    pub h: bool, // Half Carry
+    pub c: bool, // Carry
 }
 
 impl FlagsRegisters {
