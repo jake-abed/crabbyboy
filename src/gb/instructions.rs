@@ -27,7 +27,7 @@ pub enum B0Instruction {
     NOP,
     LDR16N16(u8),
     LDR16(u8),
-    LD(u8),
+    LDA(u8),
     LDN16SP,
     INCR16(u8),
     DECR16(u8),
@@ -213,7 +213,7 @@ impl Instruction {
             0x3 => Ok(Instruction::Block0(B0Instruction::INCR16(r16))),
             0x8 => Ok(Instruction::Block0(B0Instruction::LDN16SP)),
             0x9 => Ok(Instruction::Block0(B0Instruction::ADDHL(r16))),
-            0xA => Ok(Instruction::Block0(B0Instruction::LD(r16))),
+            0xA => Ok(Instruction::Block0(B0Instruction::LDA(r16))),
             0xB => Ok(Instruction::Block0(B0Instruction::DECR16(r16))),
             _ => Instruction::from_byte_zero_block_u3(byte),
         }

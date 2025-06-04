@@ -44,5 +44,9 @@ impl MemoryManagementUnit {
         (self.memory[address as usize] as u16) << 8 |
             self.memory[(address + 1) as usize] as u16
     }
+
+    pub fn set_byte(&mut self, address: u16, val: u8) {
+        self.memory[address as usize] = val;
+    }
 }
 
