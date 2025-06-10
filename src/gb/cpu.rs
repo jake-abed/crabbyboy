@@ -78,6 +78,9 @@ impl CPU {
             B0Inst::LDN16SP => self.ldn16sp(),
             B0Inst::INCR16(operand) => self.incr16(operand),
             B0Inst::DECR16(operand) => self.decr16(operand),
+            B0Inst::ADDHL(operand) => self.addhl(operand),
+            B0Inst::INCR8(operand) => self.incr8(operand),
+            B0Inst::DECR8(operand) => self.decr8(operand),
             B0Inst::LDR8N8(dest) => self.ldr8n8(dest),
             B0Inst::RLCA => self.rlca(),
             B0Inst::RRCA => self.rrca(),
@@ -90,14 +93,13 @@ impl CPU {
             B0Inst::JRN8 => self.jrn8(),
             B0Inst::JRCONDN8(cond) => self.jrcondn8(cond),
             B0Inst::STOP => self.stop(),
-            _ => println!("Idk"),
         }
     }
 
     fn execute_block_one(&mut self, instruction: B1Inst) {
         match instruction {
             B1Inst::LD { dest, source } => println!("GOT LD: {dest} - {source}"),
-            _ => println!("Idk"),
+            B1Inst::HALT => println!("Got HALT"),
         }
     }
 
@@ -231,6 +233,30 @@ impl CPU {
             Err(err) => panic!("{err:?}"),
         }
     }
+
+    fn addhl(&mut self, operand: u8) {
+        let old_hl = self.registers.hl();
+        let mut register_val: u16 = 0;
+        match reg::R16::try_from(operand) {
+            Ok(reg::R16::BC) => register_val = self.registers.bc(),
+            Ok(reg::R16::DE) => register_val = self.registers.de(),
+            Ok(reg::R16::HL) => register_val = self.registers.hl(),
+            Ok(reg::R16::SP) => register_val = self.registers.sp,
+            _ => {}
+        }
+        let (res, carry) = old_hl.overflowing_add(register_val);
+        self.registers.f.c = carry;
+        self.registers.f.s = false;
+
+        let mask: u16 = 0b1111_1111_1111;
+        self.registers.f.h = (register_val & mask) + (old_hl & mask) > mask;
+
+        self.registers.set_hl(res);
+    }
+
+    fn incr8(&mut self, operand: u8) {}
+
+    fn decr8(&mut self, operand: u8) {}
 
     fn ldr8n8(&mut self, dest: u8) {
         let n8: u8 = self.fetch();
