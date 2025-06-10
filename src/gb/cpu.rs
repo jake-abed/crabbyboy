@@ -83,6 +83,13 @@ impl CPU {
             B0Inst::RRCA => self.rrca(),
             B0Inst::RLA => self.rla(),
             B0Inst::RRA => self.rra(),
+            B0Inst::DAA => self.daa(),
+            B0Inst::CPL => self.cpl(),
+            B0Inst::SCF => self.scf(),
+            B0Inst::CCF => self.ccf(),
+            B0Inst::JRN8 => self.jrn8(),
+            B0Inst::JRCONDN8(cond) => self.jrcondn8(cond),
+            B0Inst::STOP => self.stop(),
             _ => println!("Idk"),
         }
     }
@@ -282,6 +289,95 @@ impl CPU {
         self.registers.f.s = false;
         self.registers.f.c = bit > 0;
         self.registers.a = shifted | (c << 7);
+    }
+
+    fn daa(&mut self) {
+        let n = self.registers.f.s;
+        let mut adjustment: u8 = 0;
+
+        if n {
+            if self.registers.f.h {
+                adjustment |= 0x6;
+            }
+            if self.registers.f.c {
+                adjustment |= 0x60;
+                self.registers.f.c = false;
+            }
+            self.registers.a = self.registers.a.wrapping_sub(adjustment);
+        } else {
+            if self.registers.f.h || (self.registers.a & 0xF) > 0x9 {
+                adjustment |= 0x6;
+            }
+            if self.registers.f.c || self.registers.a > 0x99 {
+                adjustment |= 0x60;
+                self.registers.f.c = true;
+            }
+
+            self.registers.a = self.registers.a.wrapping_add(adjustment);
+        }
+
+        // If the adjustment was
+        self.registers.f.z = adjustment == 0;
+        self.registers.f.h = false;
+    }
+
+    fn cpl(&mut self) {
+        self.registers.a = !self.registers.a;
+        self.registers.f.s = true;
+        self.registers.f.h = true;
+    }
+
+    fn scf(&mut self) {
+        self.registers.f.c = true;
+        self.registers.f.s = false;
+        self.registers.f.h = false;
+    }
+
+    fn ccf(&mut self) {
+        self.registers.f.c = !self.registers.f.c;
+        self.registers.f.s = false;
+        self.registers.f.h = false;
+    }
+
+    fn jrn8(&mut self) {
+        self.jump_relative();
+    }
+
+    fn jrcondn8(&mut self, cond: u8) {
+        match cond {
+            0x0 => {
+                if !self.registers.f.z {
+                    self.jump_relative();
+                }
+            }
+            0x1 => {
+                if self.registers.f.z {
+                    self.jump_relative();
+                }
+            }
+            0x2 => {
+                if !self.registers.f.c {
+                    self.jump_relative();
+                }
+            }
+            0x3 => {
+                if self.registers.f.c {
+                    self.jump_relative();
+                }
+            }
+            _ => {
+                panic!("cond: {cond} not valid, could not jump")
+            }
+        }
+    }
+
+    fn stop(&mut self) {
+        // TODO: Implement STOP. This will require
+    }
+
+    fn jump_relative(&mut self) {
+        let n8: i8 = self.fetch() as i8;
+        self.registers.sp = self.registers.sp.wrapping_add_signed(n8.into());
     }
     // Begin Block 1 Helper Functions
 }
