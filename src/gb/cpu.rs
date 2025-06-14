@@ -298,7 +298,57 @@ impl CPU {
         self.registers.f.h = (res & 0xF) == 0xF;
     }
 
-    fn decr8(&mut self, operand: u8) {}
+    fn decr8(&mut self, operand: u8) {
+        let res: u8;
+        let register_val: u8;
+        match reg::R8::try_from(operand) {
+            Ok(reg::R8::A) => {
+                register_val = self.registers.a;
+                res = register_val.wrapping_sub(1);
+                self.registers.a = res;
+            }
+            Ok(reg::R8::B) => {
+                register_val = self.registers.b;
+                res = register_val.wrapping_sub(1);
+                self.registers.b = res;
+            },
+            Ok(reg::R8::C) => {
+                register_val = self.registers.c;
+                res = register_val.wrapping_sub(1);
+                self.registers.c = res;
+            },
+            Ok(reg::R8::D) => {
+                register_val = self.registers.d;
+                res = register_val.wrapping_sub(1);
+                self.registers.c = res;
+            },
+            Ok(reg::R8::E) => {
+                register_val = self.registers.e;
+                res = register_val.wrapping_sub(1);
+                self.registers.e = res;
+            },
+            Ok(reg::R8::H) => {
+                register_val = self.registers.h;
+                res = register_val.wrapping_sub(1);
+                self.registers.h = res;
+            },
+            Ok(reg::R8::L) => {
+                register_val = self.registers.l;
+                res = register_val.wrapping_sub(1);
+                self.registers.h = res;
+            },
+            Ok(reg::R8::HL) => {
+                register_val = self.memory_bus.read_byte(self.registers.hl());
+                res = register_val.wrapping_sub(1);
+                self.memory_bus.set_byte(self.registers.hl(), res);
+            }
+            Err(err) => panic!("{err:?}"),
+        }
+
+        self.registers.f.z = res == 0;
+        self.registers.f.s = true;
+        self.registers.f.h = (register_val & 0x1) == 0x10;
+    }
 
     fn ldr8n8(&mut self, dest: u8) {
         let n8: u8 = self.fetch();
