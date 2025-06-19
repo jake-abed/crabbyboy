@@ -98,7 +98,7 @@ impl CPU {
 
     fn execute_block_one(&mut self, instruction: B1Inst) {
         match instruction {
-            B1Inst::LD { dest, source } => println!("GOT LD: {dest} - {source}"),
+            B1Inst::LD { dest, source } => self.ld(dest, source),
             B1Inst::HALT => println!("Got HALT"),
         }
     }
@@ -264,27 +264,27 @@ impl CPU {
             Ok(reg::R8::B) => {
                 res = self.registers.b.wrapping_add(1);
                 self.registers.b = res;
-            },
+            }
             Ok(reg::R8::C) => {
                 res = self.registers.c.wrapping_add(1);
                 self.registers.c = res;
-            },
+            }
             Ok(reg::R8::D) => {
                 res = self.registers.d.wrapping_add(1);
                 self.registers.c = res;
-            },
+            }
             Ok(reg::R8::E) => {
                 res = self.registers.e.wrapping_add(1);
                 self.registers.e = res;
-            },
+            }
             Ok(reg::R8::H) => {
                 res = self.registers.h.wrapping_add(1);
                 self.registers.h = res;
-            },
+            }
             Ok(reg::R8::L) => {
                 res = self.registers.l.wrapping_add(1);
                 self.registers.h = res;
-            },
+            }
             Ok(reg::R8::HL) => {
                 let hl_val = self.memory_bus.read_byte(self.registers.hl());
                 res = hl_val.wrapping_add(1);
@@ -311,32 +311,32 @@ impl CPU {
                 register_val = self.registers.b;
                 res = register_val.wrapping_sub(1);
                 self.registers.b = res;
-            },
+            }
             Ok(reg::R8::C) => {
                 register_val = self.registers.c;
                 res = register_val.wrapping_sub(1);
                 self.registers.c = res;
-            },
+            }
             Ok(reg::R8::D) => {
                 register_val = self.registers.d;
                 res = register_val.wrapping_sub(1);
                 self.registers.c = res;
-            },
+            }
             Ok(reg::R8::E) => {
                 register_val = self.registers.e;
                 res = register_val.wrapping_sub(1);
                 self.registers.e = res;
-            },
+            }
             Ok(reg::R8::H) => {
                 register_val = self.registers.h;
                 res = register_val.wrapping_sub(1);
                 self.registers.h = res;
-            },
+            }
             Ok(reg::R8::L) => {
                 register_val = self.registers.l;
                 res = register_val.wrapping_sub(1);
                 self.registers.h = res;
-            },
+            }
             Ok(reg::R8::HL) => {
                 register_val = self.memory_bus.read_byte(self.registers.hl());
                 res = register_val.wrapping_sub(1);
@@ -497,5 +497,176 @@ impl CPU {
         let n8: i8 = self.fetch() as i8;
         self.registers.sp = self.registers.sp.wrapping_add_signed(n8.into());
     }
+
     // Begin Block 1 Helper Functions
+
+    // Copy from source register to destination register.
+    fn ld(&mut self, dest: u8, source: u8) {
+        match reg::R8::try_from(dest) {
+            Ok(reg::R8::A) => self.ld_into_a(source),
+            Ok(reg::R8::B) => self.ld_into_b(source),
+            Ok(reg::R8::C) => self.ld_into_c(source),
+            Ok(reg::R8::D) => self.ld_into_d(source),
+            Ok(reg::R8::E) => self.ld_into_e(source),
+            Ok(reg::R8::H) => self.ld_into_h(source),
+            Ok(reg::R8::L) => self.ld_into_l(source),
+            Ok(reg::R8::HL) => self.ld_into_hl(source),
+            Err(err) => panic!("{err:?}"),
+        }
+    }
+
+    // Copy from source register to register a!
+    fn ld_into_a(&mut self, source: u8) {
+        match reg::R8::try_from(source) {
+            Ok(reg::R8::A) => self.registers.a = self.registers.a,
+            Ok(reg::R8::B) => self.registers.a = self.registers.b,
+            Ok(reg::R8::C) => self.registers.a = self.registers.c,
+            Ok(reg::R8::D) => self.registers.a = self.registers.d,
+            Ok(reg::R8::E) => self.registers.a = self.registers.e,
+            Ok(reg::R8::H) => self.registers.a = self.registers.h,
+            Ok(reg::R8::L) => self.registers.a = self.registers.l,
+            Ok(reg::R8::HL) => {
+                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
+                self.registers.a = hl;
+            }
+            Err(err) => {
+                panic!("{err:?}")
+            }
+        }
+    }
+
+    // Copy from source register to register b!
+    fn ld_into_b(&mut self, source: u8) {
+        match reg::R8::try_from(source) {
+            Ok(reg::R8::A) => self.registers.b = self.registers.a,
+            Ok(reg::R8::B) => self.registers.b = self.registers.b,
+            Ok(reg::R8::C) => self.registers.b = self.registers.c,
+            Ok(reg::R8::D) => self.registers.b = self.registers.d,
+            Ok(reg::R8::E) => self.registers.b = self.registers.e,
+            Ok(reg::R8::H) => self.registers.b = self.registers.h,
+            Ok(reg::R8::L) => self.registers.b = self.registers.l,
+            Ok(reg::R8::HL) => {
+                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
+                self.registers.b = hl;
+            }
+            Err(err) => {
+                panic!("{err:?}")
+            }
+        }
+    }
+
+    // Copy from source register to register c!
+    fn ld_into_c(&mut self, source: u8) {
+        match reg::R8::try_from(source) {
+            Ok(reg::R8::A) => self.registers.c = self.registers.a,
+            Ok(reg::R8::B) => self.registers.c = self.registers.b,
+            Ok(reg::R8::C) => self.registers.c = self.registers.c,
+            Ok(reg::R8::D) => self.registers.c = self.registers.d,
+            Ok(reg::R8::E) => self.registers.c = self.registers.e,
+            Ok(reg::R8::H) => self.registers.c = self.registers.h,
+            Ok(reg::R8::L) => self.registers.c = self.registers.l,
+            Ok(reg::R8::HL) => {
+                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
+                self.registers.c = hl;
+            }
+            Err(err) => {
+                panic!("{err:?}")
+            }
+        }
+    }
+
+    fn ld_into_d(&mut self, source: u8) {
+        match reg::R8::try_from(source) {
+            Ok(reg::R8::A) => self.registers.d = self.registers.a,
+            Ok(reg::R8::B) => self.registers.d = self.registers.b,
+            Ok(reg::R8::C) => self.registers.d = self.registers.c,
+            Ok(reg::R8::D) => self.registers.d = self.registers.d,
+            Ok(reg::R8::E) => self.registers.d = self.registers.e,
+            Ok(reg::R8::H) => self.registers.d = self.registers.h,
+            Ok(reg::R8::L) => self.registers.d = self.registers.l,
+            Ok(reg::R8::HL) => {
+                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
+                self.registers.d = hl;
+            }
+            Err(err) => {
+                panic!("{err:?}")
+            }
+        }
+    }
+
+    fn ld_into_e(&mut self, source: u8) {
+        match reg::R8::try_from(source) {
+            Ok(reg::R8::A) => self.registers.e = self.registers.a,
+            Ok(reg::R8::B) => self.registers.e = self.registers.b,
+            Ok(reg::R8::C) => self.registers.e = self.registers.c,
+            Ok(reg::R8::D) => self.registers.e = self.registers.d,
+            Ok(reg::R8::E) => self.registers.e = self.registers.e,
+            Ok(reg::R8::H) => self.registers.e = self.registers.h,
+            Ok(reg::R8::L) => self.registers.e = self.registers.l,
+            Ok(reg::R8::HL) => {
+                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
+                self.registers.e = hl;
+            }
+            Err(err) => {
+                panic!("{err:?}")
+            }
+        }
+    }
+
+    fn ld_into_h(&mut self, source: u8) {
+        match reg::R8::try_from(source) {
+            Ok(reg::R8::A) => self.registers.h = self.registers.a,
+            Ok(reg::R8::B) => self.registers.h = self.registers.b,
+            Ok(reg::R8::C) => self.registers.h = self.registers.c,
+            Ok(reg::R8::D) => self.registers.h = self.registers.d,
+            Ok(reg::R8::E) => self.registers.h = self.registers.e,
+            Ok(reg::R8::H) => self.registers.h = self.registers.h,
+            Ok(reg::R8::L) => self.registers.h = self.registers.l,
+            Ok(reg::R8::HL) => {
+                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
+                self.registers.h = hl;
+            }
+            Err(err) => {
+                panic!("{err:?}")
+            }
+        }
+    }
+
+    fn ld_into_l(&mut self, source: u8) {
+        match reg::R8::try_from(source) {
+            Ok(reg::R8::A) => self.registers.l = self.registers.a,
+            Ok(reg::R8::B) => self.registers.l = self.registers.b,
+            Ok(reg::R8::C) => self.registers.l = self.registers.c,
+            Ok(reg::R8::D) => self.registers.l = self.registers.d,
+            Ok(reg::R8::E) => self.registers.l = self.registers.e,
+            Ok(reg::R8::H) => self.registers.l = self.registers.h,
+            Ok(reg::R8::L) => self.registers.l = self.registers.l,
+            Ok(reg::R8::HL) => {
+                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
+                self.registers.l = hl;
+            }
+            Err(err) => {
+                panic!("{err:?}")
+            }
+        }
+    }
+
+    fn ld_into_hl(&mut self, source: u8) {
+        let hl: u16 = self.registers.hl();
+        match reg::R8::try_from(source) {
+            Ok(reg::R8::A) => self.memory_bus.set_byte(hl, self.registers.a),
+            Ok(reg::R8::B) => self.memory_bus.set_byte(hl, self.registers.b),
+            Ok(reg::R8::C) => self.memory_bus.set_byte(hl, self.registers.c),
+            Ok(reg::R8::D) => self.memory_bus.set_byte(hl, self.registers.d),
+            Ok(reg::R8::E) => self.memory_bus.set_byte(hl, self.registers.e),
+            Ok(reg::R8::H) => self.memory_bus.set_byte(hl, self.registers.h),
+            Ok(reg::R8::L) => self.memory_bus.set_byte(hl, self.registers.l),
+            Ok(reg::R8::HL) => {
+                self.memory_bus.set_byte(hl, self.memory_bus.read_byte(hl));
+            }
+            Err(err) => {
+                panic!("{err:?}")
+            }
+        }
+    }
 }
