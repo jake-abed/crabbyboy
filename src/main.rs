@@ -23,7 +23,7 @@ fn main() {
     while !end_found {
         cpu.cycle();
         instr_count += 1;
-        if cpu.end || instr_count > 260 {
+        if cpu.end || instr_count > 190 {
             end_found = true;
         }
     }

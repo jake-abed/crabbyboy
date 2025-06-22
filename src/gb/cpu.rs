@@ -127,6 +127,8 @@ impl CPU {
     // Begin Block 0 Helper Functions
     fn ldr16n16(&mut self, dest: u8) {
         let n16: u16 = self.fetch_n16();
+
+        println!("ldr16n16 - dest: {dest} - n16: {n16}");
         match reg::R16::try_from(dest) {
             Ok(reg::R16::BC) => self.registers.set_bc(n16),
             Ok(reg::R16::DE) => self.registers.set_de(n16),
@@ -137,6 +139,7 @@ impl CPU {
     }
 
     fn ldr16(&mut self, dest: u8) {
+        println!("ldr16 - dest: {dest}");
         match reg::R16Mem::try_from(dest) {
             Ok(reg::R16Mem::BC) => {
                 self.memory_bus
@@ -161,6 +164,7 @@ impl CPU {
     }
 
     fn lda(&mut self, source: u8) {
+        println!("lda - source: {source}");
         match reg::R16Mem::try_from(source) {
             Ok(reg::R16Mem::BC) => {
                 self.registers.a = self.memory_bus.read_byte(self.registers.bc())
@@ -183,6 +187,7 @@ impl CPU {
     }
 
     fn ldn16sp(&mut self) {
+        println!("ldn16sp");
         let n16 = self.fetch_n16();
         let sp_high: u8 = (self.registers.sp & 0x00FF) as u8;
         let sp_low: u8 = (self.registers.sp >> 8) as u8;
@@ -191,6 +196,7 @@ impl CPU {
     }
 
     fn incr16(&mut self, operand: u8) {
+        println!("incr16 - operand: {operand}");
         match reg::R16::try_from(operand) {
             Ok(reg::R16::BC) => {
                 let current_bc = self.registers.bc();
@@ -213,6 +219,7 @@ impl CPU {
     }
 
     fn decr16(&mut self, operand: u8) {
+        println!("decr16 - operand: {operand}");
         match reg::R16::try_from(operand) {
             Ok(reg::R16::BC) => {
                 let current_bc = self.registers.bc();
@@ -235,6 +242,7 @@ impl CPU {
     }
 
     fn addhl(&mut self, operand: u8) {
+        println!("addhl - operand: {operand}");
         let old_hl = self.registers.hl();
         let mut register_val: u16 = 0;
         match reg::R16::try_from(operand) {
@@ -255,6 +263,7 @@ impl CPU {
     }
 
     fn incr8(&mut self, operand: u8) {
+        println!("incr8 - operand: {operand}");
         let res: u8;
         match reg::R8::try_from(operand) {
             Ok(reg::R8::A) => {
@@ -301,6 +310,7 @@ impl CPU {
     fn decr8(&mut self, operand: u8) {
         let res: u8;
         let register_val: u8;
+        println!("decr8 - operand: {operand}");
         match reg::R8::try_from(operand) {
             Ok(reg::R8::A) => {
                 register_val = self.registers.a;
@@ -352,6 +362,7 @@ impl CPU {
 
     fn ldr8n8(&mut self, dest: u8) {
         let n8: u8 = self.fetch();
+        println!("ldr8n8 - dest: {dest}");
         match reg::R8::try_from(dest) {
             Ok(reg::R8::B) => self.registers.b = n8,
             Ok(reg::R8::C) => self.registers.c = n8,
@@ -368,6 +379,7 @@ impl CPU {
     }
 
     fn rlca(&mut self) {
+        println!("rlca");
         let bit: u8 = self.registers.a >> 7;
         let shifted: u8 = (self.registers.a & 0x7F) << 1;
         self.registers.f.h = false;
@@ -378,6 +390,7 @@ impl CPU {
     }
 
     fn rrca(&mut self) {
+        println!("rrca");
         let bit: u8 = self.registers.a & 0x01;
         let shifted: u8 = (self.registers.a & 0xFE) >> 1;
         self.registers.f.h = false;
@@ -388,6 +401,7 @@ impl CPU {
     }
 
     fn rla(&mut self) {
+        println!("rla");
         let bit: u8 = self.registers.a >> 7;
         let shifted: u8 = (self.registers.a & 0x7F) << 1;
         let c: u8 = if self.registers.f.c { 1 } else { 0 };
@@ -399,6 +413,7 @@ impl CPU {
     }
 
     fn rra(&mut self) {
+        println!("rra");
         let bit: u8 = self.registers.a & 0x01;
         let shifted: u8 = (self.registers.a & 0xFE) >> 1;
         let c: u8 = if self.registers.f.c { 1 } else { 0 };
@@ -410,6 +425,7 @@ impl CPU {
     }
 
     fn daa(&mut self) {
+        println!("daa");
         let n = self.registers.f.s;
         let mut adjustment: u8 = 0;
 
@@ -440,28 +456,33 @@ impl CPU {
     }
 
     fn cpl(&mut self) {
+        println!("cpl");
         self.registers.a = !self.registers.a;
         self.registers.f.s = true;
         self.registers.f.h = true;
     }
 
     fn scf(&mut self) {
+        println!("scf");
         self.registers.f.c = true;
         self.registers.f.s = false;
         self.registers.f.h = false;
     }
 
     fn ccf(&mut self) {
+        println!("ccf");
         self.registers.f.c = !self.registers.f.c;
         self.registers.f.s = false;
         self.registers.f.h = false;
     }
 
     fn jrn8(&mut self) {
+        println!("jrn8");
         self.jump_relative();
     }
 
     fn jrcondn8(&mut self, cond: u8) {
+        println!("jrcondn8 - cond: {cond}");
         match cond {
             0x0 => {
                 if !self.registers.f.z {
@@ -502,171 +523,31 @@ impl CPU {
 
     // Copy from source register to destination register.
     fn ld(&mut self, dest: u8, source: u8) {
-        match reg::R8::try_from(dest) {
-            Ok(reg::R8::A) => self.ld_into_a(source),
-            Ok(reg::R8::B) => self.ld_into_b(source),
-            Ok(reg::R8::C) => self.ld_into_c(source),
-            Ok(reg::R8::D) => self.ld_into_d(source),
-            Ok(reg::R8::E) => self.ld_into_e(source),
-            Ok(reg::R8::H) => self.ld_into_h(source),
-            Ok(reg::R8::L) => self.ld_into_l(source),
-            Ok(reg::R8::HL) => self.ld_into_hl(source),
+        println!("ld - dest: {dest} - source: {source}");
+        let source_val: u8 = match reg::R8::try_from(source) {
+            Ok(reg::R8::A) => self.registers.a,
+            Ok(reg::R8::B) => self.registers.b,
+            Ok(reg::R8::C) => self.registers.c,
+            Ok(reg::R8::D) => self.registers.d,
+            Ok(reg::R8::E) => self.registers.e,
+            Ok(reg::R8::H) => self.registers.h,
+            Ok(reg::R8::L) => self.registers.l,
+            Ok(reg::R8::HL) => self.memory_bus.read_byte(self.registers.hl()),
             Err(err) => panic!("{err:?}"),
-        }
-    }
+        };
 
-    // Copy from source register to register a!
-    fn ld_into_a(&mut self, source: u8) {
-        match reg::R8::try_from(source) {
-            Ok(reg::R8::A) => self.registers.a = self.registers.a,
-            Ok(reg::R8::B) => self.registers.a = self.registers.b,
-            Ok(reg::R8::C) => self.registers.a = self.registers.c,
-            Ok(reg::R8::D) => self.registers.a = self.registers.d,
-            Ok(reg::R8::E) => self.registers.a = self.registers.e,
-            Ok(reg::R8::H) => self.registers.a = self.registers.h,
-            Ok(reg::R8::L) => self.registers.a = self.registers.l,
+        match reg::R8::try_from(dest) {
+            Ok(reg::R8::A) => self.registers.a = source_val,
+            Ok(reg::R8::B) => self.registers.b = source_val,
+            Ok(reg::R8::C) => self.registers.c = source_val,
+            Ok(reg::R8::D) => self.registers.d = source_val,
+            Ok(reg::R8::E) => self.registers.e = source_val,
+            Ok(reg::R8::H) => self.registers.h = source_val,
+            Ok(reg::R8::L) => self.registers.l = source_val,
             Ok(reg::R8::HL) => {
-                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
-                self.registers.a = hl;
-            }
-            Err(err) => {
-                panic!("{err:?}")
-            }
-        }
-    }
-
-    // Copy from source register to register b!
-    fn ld_into_b(&mut self, source: u8) {
-        match reg::R8::try_from(source) {
-            Ok(reg::R8::A) => self.registers.b = self.registers.a,
-            Ok(reg::R8::B) => self.registers.b = self.registers.b,
-            Ok(reg::R8::C) => self.registers.b = self.registers.c,
-            Ok(reg::R8::D) => self.registers.b = self.registers.d,
-            Ok(reg::R8::E) => self.registers.b = self.registers.e,
-            Ok(reg::R8::H) => self.registers.b = self.registers.h,
-            Ok(reg::R8::L) => self.registers.b = self.registers.l,
-            Ok(reg::R8::HL) => {
-                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
-                self.registers.b = hl;
-            }
-            Err(err) => {
-                panic!("{err:?}")
-            }
-        }
-    }
-
-    // Copy from source register to register c!
-    fn ld_into_c(&mut self, source: u8) {
-        match reg::R8::try_from(source) {
-            Ok(reg::R8::A) => self.registers.c = self.registers.a,
-            Ok(reg::R8::B) => self.registers.c = self.registers.b,
-            Ok(reg::R8::C) => self.registers.c = self.registers.c,
-            Ok(reg::R8::D) => self.registers.c = self.registers.d,
-            Ok(reg::R8::E) => self.registers.c = self.registers.e,
-            Ok(reg::R8::H) => self.registers.c = self.registers.h,
-            Ok(reg::R8::L) => self.registers.c = self.registers.l,
-            Ok(reg::R8::HL) => {
-                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
-                self.registers.c = hl;
-            }
-            Err(err) => {
-                panic!("{err:?}")
-            }
-        }
-    }
-
-    fn ld_into_d(&mut self, source: u8) {
-        match reg::R8::try_from(source) {
-            Ok(reg::R8::A) => self.registers.d = self.registers.a,
-            Ok(reg::R8::B) => self.registers.d = self.registers.b,
-            Ok(reg::R8::C) => self.registers.d = self.registers.c,
-            Ok(reg::R8::D) => self.registers.d = self.registers.d,
-            Ok(reg::R8::E) => self.registers.d = self.registers.e,
-            Ok(reg::R8::H) => self.registers.d = self.registers.h,
-            Ok(reg::R8::L) => self.registers.d = self.registers.l,
-            Ok(reg::R8::HL) => {
-                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
-                self.registers.d = hl;
-            }
-            Err(err) => {
-                panic!("{err:?}")
-            }
-        }
-    }
-
-    fn ld_into_e(&mut self, source: u8) {
-        match reg::R8::try_from(source) {
-            Ok(reg::R8::A) => self.registers.e = self.registers.a,
-            Ok(reg::R8::B) => self.registers.e = self.registers.b,
-            Ok(reg::R8::C) => self.registers.e = self.registers.c,
-            Ok(reg::R8::D) => self.registers.e = self.registers.d,
-            Ok(reg::R8::E) => self.registers.e = self.registers.e,
-            Ok(reg::R8::H) => self.registers.e = self.registers.h,
-            Ok(reg::R8::L) => self.registers.e = self.registers.l,
-            Ok(reg::R8::HL) => {
-                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
-                self.registers.e = hl;
-            }
-            Err(err) => {
-                panic!("{err:?}")
-            }
-        }
-    }
-
-    fn ld_into_h(&mut self, source: u8) {
-        match reg::R8::try_from(source) {
-            Ok(reg::R8::A) => self.registers.h = self.registers.a,
-            Ok(reg::R8::B) => self.registers.h = self.registers.b,
-            Ok(reg::R8::C) => self.registers.h = self.registers.c,
-            Ok(reg::R8::D) => self.registers.h = self.registers.d,
-            Ok(reg::R8::E) => self.registers.h = self.registers.e,
-            Ok(reg::R8::H) => self.registers.h = self.registers.h,
-            Ok(reg::R8::L) => self.registers.h = self.registers.l,
-            Ok(reg::R8::HL) => {
-                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
-                self.registers.h = hl;
-            }
-            Err(err) => {
-                panic!("{err:?}")
-            }
-        }
-    }
-
-    fn ld_into_l(&mut self, source: u8) {
-        match reg::R8::try_from(source) {
-            Ok(reg::R8::A) => self.registers.l = self.registers.a,
-            Ok(reg::R8::B) => self.registers.l = self.registers.b,
-            Ok(reg::R8::C) => self.registers.l = self.registers.c,
-            Ok(reg::R8::D) => self.registers.l = self.registers.d,
-            Ok(reg::R8::E) => self.registers.l = self.registers.e,
-            Ok(reg::R8::H) => self.registers.l = self.registers.h,
-            Ok(reg::R8::L) => self.registers.l = self.registers.l,
-            Ok(reg::R8::HL) => {
-                let hl: u8 = self.memory_bus.read_byte(self.registers.hl());
-                self.registers.l = hl;
-            }
-            Err(err) => {
-                panic!("{err:?}")
-            }
-        }
-    }
-
-    fn ld_into_hl(&mut self, source: u8) {
-        let hl: u16 = self.registers.hl();
-        match reg::R8::try_from(source) {
-            Ok(reg::R8::A) => self.memory_bus.set_byte(hl, self.registers.a),
-            Ok(reg::R8::B) => self.memory_bus.set_byte(hl, self.registers.b),
-            Ok(reg::R8::C) => self.memory_bus.set_byte(hl, self.registers.c),
-            Ok(reg::R8::D) => self.memory_bus.set_byte(hl, self.registers.d),
-            Ok(reg::R8::E) => self.memory_bus.set_byte(hl, self.registers.e),
-            Ok(reg::R8::H) => self.memory_bus.set_byte(hl, self.registers.h),
-            Ok(reg::R8::L) => self.memory_bus.set_byte(hl, self.registers.l),
-            Ok(reg::R8::HL) => {
-                self.memory_bus.set_byte(hl, self.memory_bus.read_byte(hl));
-            }
-            Err(err) => {
-                panic!("{err:?}")
-            }
+                self.memory_bus.set_byte(self.registers.hl(), source_val);
+            },
+            Err(err) => panic!("{err:?}"),
         }
     }
 }
