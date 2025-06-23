@@ -13,6 +13,20 @@ pub struct CPU {
     pub end: bool,
 }
 
+#[derive(Debug)]
+#[repr(u8)]
+enum Cycles {
+    Zero,
+    One,
+    Two,
+    Three,
+    Four,
+    Five,
+    Six,
+    Seven,
+    Eight,
+}
+
 impl CPU {
     pub fn new() -> CPU {
         CPU {
@@ -53,7 +67,7 @@ impl CPU {
     /* Parent function to execute the an instruction. Filters down through
      * successive match cases to perform the expected instruction.
      */
-    fn execute(&mut self, byte: u8, prefixed: bool) {
+    fn execute(&mut self, byte: u8, prefixed: bool) -> Cycles {
         let instruction_result = Instr::from_byte(byte, prefixed);
         match instruction_result {
             Ok(Instr::Block0(instruction)) => self.execute_block_zero(instruction),
@@ -61,7 +75,7 @@ impl CPU {
             Ok(Instr::Block2(instruction)) => self.execute_block_two(instruction),
             Ok(Instr::Block3(instruction)) => self.execute_block_three(instruction),
             Ok(Instr::Prefixed(instruction)) => self.execute_prefixed(instruction),
-            Err(error) => println!("{error:?}"),
+            Err(error) => panic!("{error:?}"),
         }
     }
 
@@ -69,9 +83,9 @@ impl CPU {
      * responsibility to individual helper functions for the specific opcode
      * families.
      */
-    fn execute_block_zero(&mut self, instruction: B0Inst) {
+    fn execute_block_zero(&mut self, instruction: B0Inst) -> Cycles {
         match instruction {
-            B0Inst::NOP => println!("Got NOP"),
+            B0Inst::NOP => self.nop(),
             B0Inst::LDR16N16(dest) => self.ldr16n16(dest),
             B0Inst::LDR16(dest) => self.ldr16(dest),
             B0Inst::LDA(source) => self.lda(source),
@@ -96,36 +110,56 @@ impl CPU {
         }
     }
 
-    fn execute_block_one(&mut self, instruction: B1Inst) {
+    fn execute_block_one(&mut self, instruction: B1Inst) -> Cycles {
         match instruction {
             B1Inst::LD { dest, source } => self.ld(dest, source),
-            B1Inst::HALT => println!("Got HALT"),
+            B1Inst::HALT => self.halt(),
         }
     }
 
-    fn execute_block_two(&mut self, instruction: B2Inst) {
+    fn execute_block_two(&mut self, instruction: B2Inst) -> Cycles {
         match instruction {
-            B2Inst::ADD(val) => println!("GOT ADD: {val}"),
-            _ => println!("Idk"),
+            B2Inst::ADD(val) => self.add(val),
+            B2Inst::ADC(val) => self.adc(val),
+            B2Inst::SUB(val) => self.sub(val),
+            _ => {
+                println!("IDK, {instruction:?}");
+                Cycles::One
+            }
         }
     }
 
-    fn execute_block_three(&mut self, instruction: B3Inst) {
+    fn execute_block_three(&mut self, instruction: B3Inst) -> Cycles {
         match instruction {
-            B3Inst::ADDN8 => println!("GOT ADDN8)"),
-            _ => println!("Idk"),
+            B3Inst::ADDN8 => {
+                println!("GOT ADDN8)");
+                Cycles::One
+            }
+            _ => {
+                println!("IDK, {instruction:?}");
+                Cycles::One
+            }
         }
     }
 
-    fn execute_prefixed(&mut self, instruction: PrefixedInst) {
+    fn execute_prefixed(&mut self, instruction: PrefixedInst) -> Cycles {
         match instruction {
-            PrefixedInst::RLC(operand) => println!("Got RLC(operand) - {operand}"),
-            _ => println!("Idk"),
+            PrefixedInst::RLC(operand) => {
+                println!("Got RLC(operand) - {operand}");
+                Cycles::One
+            },
+            _ => {
+                println!("IDK, {instruction:?}");
+                Cycles::One
+            }
         }
     }
 
     // Begin Block 0 Helper Functions
-    fn ldr16n16(&mut self, dest: u8) {
+    
+    fn nop(&mut self) -> Cycles { Cycles::One }
+
+    fn ldr16n16(&mut self, dest: u8) -> Cycles {
         let n16: u16 = self.fetch_n16();
 
         println!("ldr16n16 - dest: {dest} - n16: {n16}");
@@ -136,9 +170,11 @@ impl CPU {
             Ok(reg::R16::SP) => self.registers.sp = n16,
             Err(err) => panic!("{err:?}"),
         }
+
+        Cycles::Three
     }
 
-    fn ldr16(&mut self, dest: u8) {
+    fn ldr16(&mut self, dest: u8) -> Cycles {
         println!("ldr16 - dest: {dest}");
         match reg::R16Mem::try_from(dest) {
             Ok(reg::R16Mem::BC) => {
@@ -160,10 +196,12 @@ impl CPU {
                 self.registers.set_hl(hl.wrapping_sub(1));
             }
             Err(err) => panic!("{err:?}"),
-        }
+        };
+
+        Cycles::Two
     }
 
-    fn lda(&mut self, source: u8) {
+    fn lda(&mut self, source: u8) -> Cycles {
         println!("lda - source: {source}");
         match reg::R16Mem::try_from(source) {
             Ok(reg::R16Mem::BC) => {
@@ -183,19 +221,23 @@ impl CPU {
                 self.registers.set_hl(hl.wrapping_sub(1));
             }
             Err(err) => panic!("{err:?}"),
-        }
+        };
+
+        Cycles::Two
     }
 
-    fn ldn16sp(&mut self) {
+    fn ldn16sp(&mut self) -> Cycles {
         println!("ldn16sp");
         let n16 = self.fetch_n16();
         let sp_high: u8 = (self.registers.sp & 0x00FF) as u8;
         let sp_low: u8 = (self.registers.sp >> 8) as u8;
         self.memory_bus.set_byte(n16, sp_high);
         self.memory_bus.set_byte(n16.wrapping_add(1), sp_low);
+
+        Cycles::Five
     }
 
-    fn incr16(&mut self, operand: u8) {
+    fn incr16(&mut self, operand: u8) -> Cycles {
         println!("incr16 - operand: {operand}");
         match reg::R16::try_from(operand) {
             Ok(reg::R16::BC) => {
@@ -216,9 +258,11 @@ impl CPU {
             }
             Err(err) => panic!("{err:?}"),
         }
+
+        Cycles::Two
     }
 
-    fn decr16(&mut self, operand: u8) {
+    fn decr16(&mut self, operand: u8) -> Cycles {
         println!("decr16 - operand: {operand}");
         match reg::R16::try_from(operand) {
             Ok(reg::R16::BC) => {
@@ -239,9 +283,11 @@ impl CPU {
             }
             Err(err) => panic!("{err:?}"),
         }
+
+        Cycles::Two
     }
 
-    fn addhl(&mut self, operand: u8) {
+    fn addhl(&mut self, operand: u8) -> Cycles {
         println!("addhl - operand: {operand}");
         let old_hl = self.registers.hl();
         let mut register_val: u16 = 0;
@@ -260,9 +306,11 @@ impl CPU {
         self.registers.f.h = (register_val & mask) + (old_hl & mask) > mask;
 
         self.registers.set_hl(res);
+
+        Cycles::Two
     }
 
-    fn incr8(&mut self, operand: u8) {
+    fn incr8(&mut self, operand: u8) -> Cycles {
         println!("incr8 - operand: {operand}");
         let res: u8;
         match reg::R8::try_from(operand) {
@@ -305,9 +353,11 @@ impl CPU {
         self.registers.f.z = res == 0;
         self.registers.f.s = false;
         self.registers.f.h = (res & 0xF) == 0xF;
+
+        Cycles::One
     }
 
-    fn decr8(&mut self, operand: u8) {
+    fn decr8(&mut self, operand: u8) -> Cycles {
         let res: u8;
         let register_val: u8;
         println!("decr8 - operand: {operand}");
@@ -358,9 +408,11 @@ impl CPU {
         self.registers.f.z = res == 0;
         self.registers.f.s = true;
         self.registers.f.h = (register_val & 0x1) == 0x10;
+
+        Cycles::One
     }
 
-    fn ldr8n8(&mut self, dest: u8) {
+    fn ldr8n8(&mut self, dest: u8) -> Cycles {
         let n8: u8 = self.fetch();
         println!("ldr8n8 - dest: {dest}");
         match reg::R8::try_from(dest) {
@@ -376,9 +428,11 @@ impl CPU {
             Ok(reg::R8::A) => self.registers.a = n8,
             Err(err) => panic!("{err:?}"),
         }
+
+        Cycles::Two
     }
 
-    fn rlca(&mut self) {
+    fn rlca(&mut self) -> Cycles {
         println!("rlca");
         let bit: u8 = self.registers.a >> 7;
         let shifted: u8 = (self.registers.a & 0x7F) << 1;
@@ -387,9 +441,11 @@ impl CPU {
         self.registers.f.s = false;
         self.registers.f.c = bit > 0;
         self.registers.a = shifted | bit;
+
+        Cycles::One
     }
 
-    fn rrca(&mut self) {
+    fn rrca(&mut self) -> Cycles {
         println!("rrca");
         let bit: u8 = self.registers.a & 0x01;
         let shifted: u8 = (self.registers.a & 0xFE) >> 1;
@@ -398,9 +454,11 @@ impl CPU {
         self.registers.f.s = false;
         self.registers.f.c = bit > 0;
         self.registers.a = shifted | (bit << 7);
+
+        Cycles::One
     }
 
-    fn rla(&mut self) {
+    fn rla(&mut self) -> Cycles {
         println!("rla");
         let bit: u8 = self.registers.a >> 7;
         let shifted: u8 = (self.registers.a & 0x7F) << 1;
@@ -410,9 +468,11 @@ impl CPU {
         self.registers.f.s = false;
         self.registers.f.c = bit > 0;
         self.registers.a = shifted | c;
+
+        Cycles::One
     }
 
-    fn rra(&mut self) {
+    fn rra(&mut self) -> Cycles {
         println!("rra");
         let bit: u8 = self.registers.a & 0x01;
         let shifted: u8 = (self.registers.a & 0xFE) >> 1;
@@ -422,9 +482,11 @@ impl CPU {
         self.registers.f.s = false;
         self.registers.f.c = bit > 0;
         self.registers.a = shifted | (c << 7);
+
+        Cycles::One
     }
 
-    fn daa(&mut self) {
+    fn daa(&mut self) -> Cycles {
         println!("daa");
         let n = self.registers.f.s;
         let mut adjustment: u8 = 0;
@@ -453,65 +515,83 @@ impl CPU {
         // If the adjustment was
         self.registers.f.z = adjustment == 0;
         self.registers.f.h = false;
+
+        Cycles::One
     }
 
-    fn cpl(&mut self) {
+    fn cpl(&mut self) -> Cycles {
         println!("cpl");
         self.registers.a = !self.registers.a;
         self.registers.f.s = true;
         self.registers.f.h = true;
+
+        Cycles::One
     }
 
-    fn scf(&mut self) {
+    fn scf(&mut self) -> Cycles {
         println!("scf");
         self.registers.f.c = true;
         self.registers.f.s = false;
         self.registers.f.h = false;
+
+        Cycles::One
     }
 
-    fn ccf(&mut self) {
+    fn ccf(&mut self) -> Cycles {
         println!("ccf");
         self.registers.f.c = !self.registers.f.c;
         self.registers.f.s = false;
         self.registers.f.h = false;
+
+        Cycles::One
     }
 
-    fn jrn8(&mut self) {
+    fn jrn8(&mut self) -> Cycles {
         println!("jrn8");
         self.jump_relative();
+
+        Cycles::Three
     }
 
-    fn jrcondn8(&mut self, cond: u8) {
+    fn jrcondn8(&mut self, cond: u8) -> Cycles {
+        let mut num_cycles = Cycles::Two;
         println!("jrcondn8 - cond: {cond}");
         match cond {
             0x0 => {
                 if !self.registers.f.z {
                     self.jump_relative();
+                    num_cycles = Cycles::Three;
                 }
             }
             0x1 => {
                 if self.registers.f.z {
                     self.jump_relative();
+                    num_cycles = Cycles::Three;
                 }
             }
             0x2 => {
                 if !self.registers.f.c {
                     self.jump_relative();
+                    num_cycles = Cycles::Three;
                 }
             }
             0x3 => {
                 if self.registers.f.c {
                     self.jump_relative();
+                    num_cycles = Cycles::Three;
                 }
             }
             _ => {
                 panic!("cond: {cond} not valid, could not jump")
             }
         }
+
+        num_cycles
     }
 
-    fn stop(&mut self) {
+    fn stop(&mut self) -> Cycles {
         // TODO: Implement STOP. This will require
+        Cycles::Zero
     }
 
     fn jump_relative(&mut self) {
@@ -522,7 +602,7 @@ impl CPU {
     // Begin Block 1 Helper Functions
 
     // Copy from source register to destination register.
-    fn ld(&mut self, dest: u8, source: u8) {
+    fn ld(&mut self, dest: u8, source: u8) -> Cycles {
         println!("ld - dest: {dest} - source: {source}");
         let source_val: u8 = match reg::R8::try_from(source) {
             Ok(reg::R8::A) => self.registers.a,
@@ -549,5 +629,35 @@ impl CPU {
             },
             Err(err) => panic!("{err:?}"),
         }
+
+        Cycles::One
+    }
+
+    fn halt(&mut self) -> Cycles {
+        println!("Halt");
+
+        Cycles::One
+    }
+
+    // Begin Block 2 Helper Functions
+    
+    fn add(&mut self, val: u8) -> Cycles {
+        let res: u8 = self.registers.a.wrapping_add(val);
+
+        self.registers.f.z = if res == 0 { true } else { false };
+        self.registers.f.s = false;
+        self.registers.f.h = res & 0xF == 0;
+
+        Cycles::One
+    }
+
+    fn adc(&mut self, val: u8) -> Cycles {
+        println!("adc - val: {val}");
+        Cycles::One
+    }
+
+    fn sub(&mut self, val: u8) -> Cycles {
+        println!("sub - val: {val}");
+        Cycles::One
     }
 }
