@@ -663,6 +663,7 @@ impl CPU {
         Cycles::One
     }
 
+    // To Do: Implement halt and IME flag. Complex instruction.
     fn halt(&mut self) -> Cycles {
         println!("Halt");
 
@@ -672,22 +673,49 @@ impl CPU {
     // Begin Block 2 Helper Functions
     
     fn add(&mut self, val: u8) -> Cycles {
+        println!("add - val: {val}");
+        // This should possibly be switched for a more terse binary evaluation.
+        let (_, overflow) = self.registers.a.overflowing_add(val);
         let res: u8 = self.registers.a.wrapping_add(val);
 
         self.registers.f.z = if res == 0 { true } else { false };
         self.registers.f.s = false;
         self.registers.f.h = res & 0xF == 0;
+        self.registers.f.c = overflow;
+
+        self.registers.a = res;
 
         Cycles::One
     }
 
     fn adc(&mut self, val: u8) -> Cycles {
         println!("adc - val: {val}");
+        // This should possibly be switched for a more terse binary evaluation.
+        let (_, overflow) = self.registers.a.overflowing_add(val);
+        let hc: u8 = if self.registers.f.h { 1 } else { 0 };
+        let res: u8 = self.registers.a.wrapping_add(val).wrapping_add(hc);
+
+        self.registers.f.z = if res == 0 { true } else { false };
+        self.registers.f.s = false;
+        self.registers.f.h = res & 0xF == 0;
+        self.registers.f.c = overflow;
+
+        self.registers.a = res;
+
         Cycles::One
     }
 
     fn sub(&mut self, val: u8) -> Cycles {
         println!("sub - val: {val}");
+
+        let res: u8 = self.registers.a.wrapping_sub(val);
+
+        self.registers.f.z = if res == 0 { true } else { false };
+        self.registers.f.s = true;
+        self.registers.f.h = res & 0xF == 0xF;
+        self.registers.f.c = val > self.registers.a;
+
+        self.registers.a = res;
         Cycles::One
     }
 }
