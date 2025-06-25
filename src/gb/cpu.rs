@@ -23,8 +23,6 @@ enum Cycles {
     Four,
     Five,
     Six,
-    Seven,
-    Eight,
 }
 
 impl CPU {
@@ -289,22 +287,26 @@ impl CPU {
 
     fn addhl(&mut self, operand: u8) -> Cycles {
         println!("addhl - operand: {operand}");
+
         let old_hl = self.registers.hl();
         let mut register_val: u16 = 0;
+
         match reg::R16::try_from(operand) {
             Ok(reg::R16::BC) => register_val = self.registers.bc(),
             Ok(reg::R16::DE) => register_val = self.registers.de(),
             Ok(reg::R16::HL) => register_val = self.registers.hl(),
             Ok(reg::R16::SP) => register_val = self.registers.sp,
-            _ => {}
+            Err(err) => {
+                panic!("operand={operand} not r16 - failed to set register_val={register_val} - {err:?}");
+                },
         }
+
         let (res, carry) = old_hl.overflowing_add(register_val);
         self.registers.f.c = carry;
         self.registers.f.s = false;
 
         let mask: u16 = 0b1111_1111_1111;
         self.registers.f.h = (register_val & mask) + (old_hl & mask) > mask;
-
         self.registers.set_hl(res);
 
         Cycles::Two
@@ -312,39 +314,48 @@ impl CPU {
 
     fn incr8(&mut self, operand: u8) -> Cycles {
         println!("incr8 - operand: {operand}");
+        let reg_val: u8;
         let res: u8;
         match reg::R8::try_from(operand) {
             Ok(reg::R8::A) => {
+                reg_val = self.registers.a;
                 res = self.registers.a.wrapping_add(1);
                 self.registers.a = res;
             }
             Ok(reg::R8::B) => {
+                reg_val = self.registers.b;
                 res = self.registers.b.wrapping_add(1);
                 self.registers.b = res;
             }
             Ok(reg::R8::C) => {
+                reg_val = self.registers.c;
                 res = self.registers.c.wrapping_add(1);
                 self.registers.c = res;
             }
             Ok(reg::R8::D) => {
+                reg_val = self.registers.d;
                 res = self.registers.d.wrapping_add(1);
                 self.registers.c = res;
             }
             Ok(reg::R8::E) => {
+                reg_val = self.registers.h;
                 res = self.registers.e.wrapping_add(1);
                 self.registers.e = res;
             }
             Ok(reg::R8::H) => {
+                reg_val = self.registers.h;
                 res = self.registers.h.wrapping_add(1);
                 self.registers.h = res;
             }
             Ok(reg::R8::L) => {
+                reg_val = self.registers.l;
                 res = self.registers.l.wrapping_add(1);
                 self.registers.h = res;
             }
             Ok(reg::R8::HL) => {
                 let hl_val = self.memory_bus.read_byte(self.registers.hl());
                 res = hl_val.wrapping_add(1);
+                reg_val = hl_val;
                 self.memory_bus.set_byte(self.registers.hl(), res);
             }
             Err(err) => panic!("{err:?}"),
@@ -352,7 +363,9 @@ impl CPU {
 
         self.registers.f.z = res == 0;
         self.registers.f.s = false;
-        self.registers.f.h = (res & 0xF) == 0xF;
+        // Slightly esoteric but fairly smart way to do this from
+        // https://www.reddit.com/r/EmuDev/comments/692n59/gb_questions_about_halfcarry_and_best/
+        self.registers.f.h = ((reg_val ^ 1 ^ res) & 0x10) != 0;
 
         Cycles::One
     }
@@ -407,7 +420,7 @@ impl CPU {
 
         self.registers.f.z = res == 0;
         self.registers.f.s = true;
-        self.registers.f.h = (register_val & 0x1) == 0x10;
+        self.registers.f.h = register_val & 0xF == 0;
 
         Cycles::One
     }
@@ -436,10 +449,13 @@ impl CPU {
         println!("rlca");
         let bit: u8 = self.registers.a >> 7;
         let shifted: u8 = (self.registers.a & 0x7F) << 1;
+
+        // set flags
         self.registers.f.h = false;
         self.registers.f.z = false;
         self.registers.f.s = false;
         self.registers.f.c = bit > 0;
+
         self.registers.a = shifted | bit;
 
         Cycles::One
@@ -449,10 +465,13 @@ impl CPU {
         println!("rrca");
         let bit: u8 = self.registers.a & 0x01;
         let shifted: u8 = (self.registers.a & 0xFE) >> 1;
+
+        // set flags
         self.registers.f.h = false;
         self.registers.f.z = false;
         self.registers.f.s = false;
         self.registers.f.c = bit > 0;
+        
         self.registers.a = shifted | (bit << 7);
 
         Cycles::One
@@ -463,10 +482,13 @@ impl CPU {
         let bit: u8 = self.registers.a >> 7;
         let shifted: u8 = (self.registers.a & 0x7F) << 1;
         let c: u8 = if self.registers.f.c { 1 } else { 0 };
+
+        // set flags
         self.registers.f.h = false;
         self.registers.f.z = false;
         self.registers.f.s = false;
         self.registers.f.c = bit > 0;
+
         self.registers.a = shifted | c;
 
         Cycles::One
@@ -477,21 +499,25 @@ impl CPU {
         let bit: u8 = self.registers.a & 0x01;
         let shifted: u8 = (self.registers.a & 0xFE) >> 1;
         let c: u8 = if self.registers.f.c { 1 } else { 0 };
+
+        // set flags
         self.registers.f.h = false;
         self.registers.f.z = false;
         self.registers.f.s = false;
         self.registers.f.c = bit > 0;
+
         self.registers.a = shifted | (c << 7);
 
         Cycles::One
     }
 
+    // This one should be good, but dear god, this needs to be tested.
     fn daa(&mut self) -> Cycles {
         println!("daa");
-        let n = self.registers.f.s;
+        let sub_flag = self.registers.f.s;
         let mut adjustment: u8 = 0;
 
-        if n {
+        if sub_flag {
             if self.registers.f.h {
                 adjustment |= 0x6;
             }
@@ -512,7 +538,7 @@ impl CPU {
             self.registers.a = self.registers.a.wrapping_add(adjustment);
         }
 
-        // If the adjustment was
+        // Final universal adjustments to the zero and halfcarry flags
         self.registers.f.z = adjustment == 0;
         self.registers.f.h = false;
 
@@ -522,12 +548,15 @@ impl CPU {
     fn cpl(&mut self) -> Cycles {
         println!("cpl");
         self.registers.a = !self.registers.a;
+
+        // set registers
         self.registers.f.s = true;
         self.registers.f.h = true;
 
         Cycles::One
     }
 
+    // Weird instruction, justs set the carry flag, turns off sub and half.
     fn scf(&mut self) -> Cycles {
         println!("scf");
         self.registers.f.c = true;
@@ -537,6 +566,7 @@ impl CPU {
         Cycles::One
     }
 
+    // Same as above, but flips the carry flag.
     fn ccf(&mut self) -> Cycles {
         println!("ccf");
         self.registers.f.c = !self.registers.f.c;
@@ -661,3 +691,4 @@ impl CPU {
         Cycles::One
     }
 }
+
