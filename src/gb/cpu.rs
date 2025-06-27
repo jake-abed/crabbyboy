@@ -718,5 +718,21 @@ impl CPU {
         self.registers.a = res;
         Cycles::One
     }
+
+    fn sbc(&mut self, val: u8) -> Cycles {
+        println!("sub - val: {val}");
+
+        let inc_val: u8 = val + 1; // This works because val can never be greater than 7
+        let a_val: u8 = self.registers.a;
+        let res: u8 = a_val.wrapping_sub(inc_val);
+
+        self.registers.f.z = res == 0;
+        self.registers.f.s = true;
+        self.registers.f.h = res & 0xF == 0xF;
+        self.registers.f.c = inc_val > a_val;
+
+        self. registers.a = res;
+        Cycles::One
+    }
 }
 
