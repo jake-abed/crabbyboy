@@ -120,6 +120,8 @@ impl CPU {
             B2Inst::ADD(val) => self.add(val),
             B2Inst::ADC(val) => self.adc(val),
             B2Inst::SUB(val) => self.sub(val),
+            B2Inst::SBC(val) => self.sbc(val),
+            B2Inst::AND(val) => self.and(val),
             _ => {
                 println!("IDK, {instruction:?}");
                 Cycles::One
@@ -673,14 +675,16 @@ impl CPU {
     // Begin Block 2 Helper Functions
     
     fn add(&mut self, val: u8) -> Cycles {
-        println!("add - val: {val}");
+        let reg_val = self.get_register_val(val);
+        println!("add - val: {reg_val}");
+
         // This should possibly be switched for a more terse binary evaluation.
-        let (_, overflow) = self.registers.a.overflowing_add(val);
-        let res: u8 = self.registers.a.wrapping_add(val);
+        let (_, overflow) = self.registers.a.overflowing_add(reg_val);
+        let res: u8 = self.registers.a.wrapping_add(reg_val);
 
         self.registers.f.z = if res == 0 { true } else { false };
         self.registers.f.s = false;
-        self.registers.f.h = res & 0xF == 0;
+        self.registers.f.h = half_carry(reg_val, self.registers.a, false);
         self.registers.f.c = overflow;
 
         self.registers.a = res;
@@ -689,15 +693,17 @@ impl CPU {
     }
 
     fn adc(&mut self, val: u8) -> Cycles {
-        println!("adc - val: {val}");
+        let reg_val = self.get_register_val(val);
+        println!("adc - val: {reg_val}");
+
         // This should possibly be switched for a more terse binary evaluation.
-        let (_, overflow) = self.registers.a.overflowing_add(val);
+        let (_, overflow) = self.registers.a.overflowing_add(reg_val);
         let hc: u8 = if self.registers.f.h { 1 } else { 0 };
-        let res: u8 = self.registers.a.wrapping_add(val).wrapping_add(hc);
+        let res: u8 = self.registers.a.wrapping_add(reg_val).wrapping_add(hc);
 
         self.registers.f.z = if res == 0 { true } else { false };
         self.registers.f.s = false;
-        self.registers.f.h = res & 0xF == 0;
+        self.registers.f.h = half_carry(self.registers.a, reg_val, true);
         self.registers.f.c = overflow;
 
         self.registers.a = res;
@@ -706,13 +712,15 @@ impl CPU {
     }
 
     fn sub(&mut self, val: u8) -> Cycles {
-        println!("sub - val: {val}");
+        let reg_val = self.get_register_val(val);
+        println!("sub - val: {reg_val}");
 
         let res: u8 = self.registers.a.wrapping_sub(val);
 
         self.registers.f.z = if res == 0 { true } else { false };
         self.registers.f.s = true;
-        self.registers.f.h = res & 0xF == 0xF;
+        let hc = half_carry_sub(self.registers.a, reg_val, false);
+        self.registers.f.h = hc;
         self.registers.f.c = val > self.registers.a;
 
         self.registers.a = res;
@@ -720,19 +728,73 @@ impl CPU {
     }
 
     fn sbc(&mut self, val: u8) -> Cycles {
-        println!("sub - val: {val}");
+        let reg_val = self.get_register_val(val);
+        println!("sbc - val: {reg_val}");
 
-        let inc_val: u8 = val + 1; // This works because val can never be greater than 7
         let a_val: u8 = self.registers.a;
-        let res: u8 = a_val.wrapping_sub(inc_val);
+        let carry_val = if self.registers.f.c { 1 } else { 0 };
+        let res: u8 = a_val.wrapping_sub(val).wrapping_sub(carry_val);
 
         self.registers.f.z = res == 0;
         self.registers.f.s = true;
-        self.registers.f.h = res & 0xF == 0xF;
-        self.registers.f.c = inc_val > a_val;
+        let hc = half_carry_sub(a_val, reg_val, self.registers.f.c);
+        self.registers.f.h = hc;
+        self.registers.f.c = reg_val.wrapping_add(carry_val) > a_val;
 
         self. registers.a = res;
         Cycles::One
     }
+
+    fn and(&mut self, val: u8) -> Cycles {
+        println!("and - val: {val}");
+
+        let reg_val = self.get_register_val(val);
+        let new_val = self.registers.a & reg_val;
+        
+        self.registers.f.z = new_val == 0;
+        self.registers.f.s = false;
+        self.registers.f.h = true;
+        self.registers.f.c = false;
+
+        self.registers.a = new_val;
+
+        Cycles::One
+    }
+
+    // General Helper Functions
+    
+    fn get_register_val(& self, register: u8) -> u8 {
+        match reg::R8::try_from(register) {
+            Ok(reg::R8::A) => self.registers.a,
+            Ok(reg::R8::B) => self.registers.b,
+            Ok(reg::R8::C) => self.registers.c,
+            Ok(reg::R8::D) => self.registers.d,
+            Ok(reg::R8::E) => self.registers.e,
+            Ok(reg::R8::H) => self.registers.h,
+            Ok(reg::R8::L) => self.registers.l,
+            Ok(reg::R8::HL) => {
+                self.memory_bus.read_byte(self.registers.hl())
+            },
+            Err(err) => panic!("invalid register val - {err:?}"),
+        }
+    }
+
 }
+
+fn half_carry(a: u8, b:u8, carry: bool) -> bool {
+    if carry {
+        ((a & 0xF) + (b & 0xF) + (1 & 0xF)) & 0x10 != 0
+    } else {
+        ((a & 0xF) + (b & 0xF)) & 0x10 != 0
+    }
+}
+
+fn half_carry_sub(a: u8, b: u8, carry: bool) -> bool {
+    if carry {
+        ((a & 0xF).wrapping_sub(b & 0xF).wrapping_sub(1 & 0xF)) & 0x10 != 0
+    } else {
+        ((a & 0xF).wrapping_sub(b & 0xF)) & 0x10 != 0
+    }
+}
+
 
