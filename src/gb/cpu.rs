@@ -122,10 +122,9 @@ impl CPU {
             B2Inst::SUB(val) => self.sub(val),
             B2Inst::SBC(val) => self.sbc(val),
             B2Inst::AND(val) => self.and(val),
-            _ => {
-                println!("IDK, {instruction:?}");
-                Cycles::One
-            }
+            B2Inst::XOR(val) => self.xor(val),
+            B2Inst::OR(val) => self.or(val),
+            B2Inst::CP(val) => self.cp(val),
         }
     }
 
@@ -746,9 +745,9 @@ impl CPU {
     }
 
     fn and(&mut self, val: u8) -> Cycles {
-        println!("and - val: {val}");
-
         let reg_val = self.get_register_val(val);
+        println!("and - val: {reg_val}");
+
         let new_val = self.registers.a & reg_val;
         
         self.registers.f.z = new_val == 0;
@@ -757,6 +756,53 @@ impl CPU {
         self.registers.f.c = false;
 
         self.registers.a = new_val;
+
+        Cycles::One
+    }
+
+    fn xor(&mut self, val: u8) -> Cycles {
+        let reg_val = self.get_register_val(val);
+        println!("xor - val: {reg_val}");
+
+        let new_val = self.registers.a ^ reg_val;
+
+        self.registers.f.z = new_val == 0;
+        self.registers.f.s = false;
+        self.registers.f.h = false;
+        self.registers.f.c = false;
+
+        self.registers.a = new_val;
+
+        Cycles::One
+    }
+
+    fn or(&mut self, val: u8) -> Cycles {
+        let reg_val = self.get_register_val(val);
+        println!("or - val: {reg_val}");
+
+        let new_val = self.registers.a | reg_val;
+
+        self.registers.f.z = new_val == 0;
+        self.registers.f.s = false;
+        self.registers.f.h = false;
+        self.registers.f.c = false;
+
+        self.registers.a = new_val;
+
+        Cycles::One
+    }
+
+    fn cp(&mut self, val: u8) -> Cycles {
+        let reg_val = self.get_register_val(val);
+        println!("sub - val: {reg_val}");
+
+        let res: u8 = self.registers.a.wrapping_sub(val);
+
+        self.registers.f.z = if res == 0 { true } else { false };
+        self.registers.f.s = true;
+        let hc = half_carry_sub(self.registers.a, reg_val, false);
+        self.registers.f.h = hc;
+        self.registers.f.c = val > self.registers.a;
 
         Cycles::One
     }
