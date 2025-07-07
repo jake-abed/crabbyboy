@@ -130,10 +130,12 @@ impl CPU {
 
     fn execute_block_three(&mut self, instruction: B3Inst) -> Cycles {
         match instruction {
-            B3Inst::ADDN8 => {
-                println!("GOT ADDN8)");
-                Cycles::One
-            }
+            B3Inst::ADDN8 => self.add_n8(),
+            B3Inst::ADCN8 => self.adc_n8(),
+            B3Inst::SUBN8 => self.sub_n8(),
+            B3Inst::SBCN8 => self.sbc_n8(),
+            B3Inst::ANDN8 => self.and_n8(),
+            B3Inst::XORN8 => self.xor_n8(),
             _ => {
                 println!("IDK, {instruction:?}");
                 Cycles::One
@@ -677,16 +679,7 @@ impl CPU {
         let reg_val = self.get_register_val(val);
         println!("add - val: {reg_val}");
 
-        // This should possibly be switched for a more terse binary evaluation.
-        let (_, overflow) = self.registers.a.overflowing_add(reg_val);
-        let res: u8 = self.registers.a.wrapping_add(reg_val);
-
-        self.registers.f.z = if res == 0 { true } else { false };
-        self.registers.f.s = false;
-        self.registers.f.h = half_carry(reg_val, self.registers.a, false);
-        self.registers.f.c = overflow;
-
-        self.registers.a = res;
+        self.add_to_a(reg_val);
 
         Cycles::One
     }
@@ -694,18 +687,9 @@ impl CPU {
     fn adc(&mut self, val: u8) -> Cycles {
         let reg_val = self.get_register_val(val);
         println!("adc - val: {reg_val}");
-
+        
+        self.adc_to_a(reg_val);
         // This should possibly be switched for a more terse binary evaluation.
-        let (_, overflow) = self.registers.a.overflowing_add(reg_val);
-        let hc: u8 = if self.registers.f.h { 1 } else { 0 };
-        let res: u8 = self.registers.a.wrapping_add(reg_val).wrapping_add(hc);
-
-        self.registers.f.z = if res == 0 { true } else { false };
-        self.registers.f.s = false;
-        self.registers.f.h = half_carry(self.registers.a, reg_val, true);
-        self.registers.f.c = overflow;
-
-        self.registers.a = res;
 
         Cycles::One
     }
@@ -714,15 +698,8 @@ impl CPU {
         let reg_val = self.get_register_val(val);
         println!("sub - val: {reg_val}");
 
-        let res: u8 = self.registers.a.wrapping_sub(val);
+        self.sub_to_a(reg_val);
 
-        self.registers.f.z = if res == 0 { true } else { false };
-        self.registers.f.s = true;
-        let hc = half_carry_sub(self.registers.a, reg_val, false);
-        self.registers.f.h = hc;
-        self.registers.f.c = val > self.registers.a;
-
-        self.registers.a = res;
         Cycles::One
     }
 
@@ -730,17 +707,6 @@ impl CPU {
         let reg_val = self.get_register_val(val);
         println!("sbc - val: {reg_val}");
 
-        let a_val: u8 = self.registers.a;
-        let carry_val = if self.registers.f.c { 1 } else { 0 };
-        let res: u8 = a_val.wrapping_sub(val).wrapping_sub(carry_val);
-
-        self.registers.f.z = res == 0;
-        self.registers.f.s = true;
-        let hc = half_carry_sub(a_val, reg_val, self.registers.f.c);
-        self.registers.f.h = hc;
-        self.registers.f.c = reg_val.wrapping_add(carry_val) > a_val;
-
-        self. registers.a = res;
         Cycles::One
     }
 
@@ -748,14 +714,7 @@ impl CPU {
         let reg_val = self.get_register_val(val);
         println!("and - val: {reg_val}");
 
-        let new_val = self.registers.a & reg_val;
-        
-        self.registers.f.z = new_val == 0;
-        self.registers.f.s = false;
-        self.registers.f.h = true;
-        self.registers.f.c = false;
-
-        self.registers.a = new_val;
+        self.and_to_a(reg_val);
 
         Cycles::One
     }
@@ -764,14 +723,7 @@ impl CPU {
         let reg_val = self.get_register_val(val);
         println!("xor - val: {reg_val}");
 
-        let new_val = self.registers.a ^ reg_val;
-
-        self.registers.f.z = new_val == 0;
-        self.registers.f.s = false;
-        self.registers.f.h = false;
-        self.registers.f.c = false;
-
-        self.registers.a = new_val;
+        self.xor_to_a(reg_val);
 
         Cycles::One
     }
@@ -807,6 +759,54 @@ impl CPU {
         Cycles::One
     }
 
+    fn add_n8(&mut self) -> Cycles {
+        let n8: u8 = self.fetch();
+
+        self.add_to_a(n8);
+
+        Cycles::Two
+    }
+
+    fn adc_n8(&mut self) -> Cycles {
+        let n8: u8 = self.fetch();
+
+        self.adc_to_a(n8);
+
+        Cycles::Two
+    }
+
+    fn sub_n8(&mut self) -> Cycles {
+        let n8: u8 = self.fetch();
+
+        self.sub_to_a(n8);
+
+        Cycles::Two
+    }
+
+    fn sbc_n8(&mut self) -> Cycles {
+        let n8: u8 = self.fetch();
+
+        self.sbc_to_a(n8);
+
+        Cycles::Two
+    }
+
+    fn and_n8(&mut self) -> Cycles {
+        let n8: u8 = self.fetch();
+
+        self.and_to_a(n8);
+
+        Cycles::Two
+    }
+
+    fn xor_n8(&mut self) -> Cycles {
+        let n8: u8 = self.fetch();
+
+        self.xor_to_a(n8);
+
+        Cycles::Two
+    }
+
     // General Helper Functions
     
     fn get_register_val(& self, register: u8) -> u8 {
@@ -825,6 +825,79 @@ impl CPU {
         }
     }
 
+    fn add_to_a(&mut self, operand: u8) {
+        // This should possibly be switched for a more terse binary evaluation.
+        let (_, overflow) = self.registers.a.overflowing_add(operand);
+        let res: u8 = self.registers.a.wrapping_add(operand);
+
+        self.registers.f.z = if res == 0 { true } else { false };
+        self.registers.f.s = false;
+        self.registers.f.h = half_carry(operand, self.registers.a, false);
+        self.registers.f.c = overflow;
+
+        self.registers.a = res;
+    }
+
+    fn adc_to_a(&mut self, operand: u8) {
+        let (_, overflow) = self.registers.a.overflowing_add(operand);
+        let hc: u8 = if self.registers.f.h { 1 } else { 0 };
+        let res: u8 = self.registers.a.wrapping_add(operand).wrapping_add(hc);
+
+        self.registers.f.z = if res == 0 { true } else { false };
+        self.registers.f.s = false;
+        self.registers.f.h = half_carry(self.registers.a, operand, true);
+        self.registers.f.c = overflow;
+
+        self.registers.a = res;
+    }
+
+    fn sub_to_a(&mut self, operand: u8) {
+        let res: u8 = self.registers.a.wrapping_sub(operand);
+
+        self.registers.f.z = if res == 0 { true } else { false };
+        self.registers.f.s = true;
+        let hc = half_carry_sub(self.registers.a, operand, false);
+        self.registers.f.h = hc;
+        self.registers.f.c = operand > self.registers.a;
+
+        self.registers.a = res;
+    }
+
+    fn sbc_to_a(&mut self, operand: u8) {
+        let a_val: u8 = self.registers.a;
+        let carry_val = if self.registers.f.c { 1 } else { 0 };
+        let res: u8 = a_val.wrapping_sub(operand).wrapping_sub(carry_val);
+
+        self.registers.f.z = res == 0;
+        self.registers.f.s = true;
+        let hc = half_carry_sub(a_val, operand, self.registers.f.c);
+        self.registers.f.h = hc;
+        self.registers.f.c = operand.wrapping_add(carry_val) > a_val;
+
+        self. registers.a = res;
+    }
+
+    fn and_to_a(&mut self, operand: u8) {
+        let new_val = self.registers.a & operand;
+        
+        self.registers.f.z = new_val == 0;
+        self.registers.f.s = false;
+        self.registers.f.h = true;
+        self.registers.f.c = false;
+
+        self.registers.a = new_val;
+    }
+
+    fn xor_to_a(&mut self, operand: u8) {
+        let new_val = self.registers.a ^ operand;
+
+        self.registers.f.z = new_val == 0;
+        self.registers.f.s = false;
+        self.registers.f.h = false;
+        self.registers.f.c = false;
+
+        self.registers.a = new_val;
+    }
 }
 
 fn half_carry(a: u8, b:u8, carry: bool) -> bool {
