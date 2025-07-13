@@ -707,6 +707,8 @@ impl CPU {
         let reg_val = self.get_register_val(register);
         println!("sbc - val: {reg_val}");
 
+        self.sbc_to_a(reg_val);
+
         Cycles::One
     }
 
@@ -840,8 +842,8 @@ impl CPU {
 
     fn adc_to_a(&mut self, operand: u8) {
         let (_, overflow) = self.registers.a.overflowing_add(operand);
-        let hc: u8 = if self.registers.f.h { 1 } else { 0 };
-        let res: u8 = self.registers.a.wrapping_add(operand).wrapping_add(hc);
+        let carry: u8 = if self.registers.f.c { 1 } else { 0 };
+        let res: u8 = self.registers.a.wrapping_add(operand).wrapping_add(carry);
 
         self.registers.f.z = if res == 0 { true } else { false };
         self.registers.f.s = false;
@@ -944,7 +946,6 @@ mod tests {
         cpu.registers.b = 10;
 
         let register_int = reg::R8::B.try_into().unwrap();
-
         let cycles = cpu.add(register_int);
 
         assert_eq!(cpu.registers.a, 11);
@@ -958,13 +959,83 @@ mod tests {
         cpu.registers.c = 1;
 
         let reg_int = reg::R8::C.try_into().unwrap();
-
         let cycles = cpu.sub(reg_int);
         
         assert_eq!(cpu.registers.a, 9);
         assert_eq!(cycles, Cycles::One);
     }
 
+    #[test]
+    fn test_sbc() {
+        let mut cpu = CPU::new();
+        cpu.registers.a = 10;
+        cpu.registers.h = 1;
+        cpu.registers.f.c = true;
+        cpu.registers.l = 9;
+
+        let reg_int = reg::R8::H.try_into().unwrap();
+        let cycles = cpu.sbc(reg_int);
+
+        assert_eq!(cpu.registers.a, 8);
+        assert_eq!(cycles, Cycles::One);
+
+        cpu.sbc(reg::R8::L.try_into().unwrap());
+
+        assert_eq!(cpu.registers.a, 255);
+    }
+
+    #[test]
+    fn test_adc() {
+        let mut cpu = CPU::new();
+        cpu.registers.a = 10;
+        cpu.registers.d = 1;
+        cpu.registers.f.c = true;
+
+        let reg_int = reg::R8::D.try_into().unwrap();
+
+        let cycles = cpu.adc(reg_int);
+
+        assert_eq!(cpu.registers.a, 12);
+        assert_eq!(cycles, Cycles::One);
+    }
+
+    #[test]
+    fn test_and() {
+        let mut cpu = CPU::new();
+        cpu.registers.a = 0b1111;
+        cpu.registers.b = 0b0101;
+        cpu.registers.c = 0b0000;
+
+        let reg_int = reg::R8::B.try_into().unwrap();
+        let cycles = cpu.and(reg_int);
+
+        assert_eq!(cpu.registers.a, 0b0101);
+        assert_eq!(cycles, Cycles::One);
+
+        cpu.and(reg::R8::C.try_into().unwrap());
+
+        assert_eq!(cpu.registers.a, 0);
+        assert_eq!(cpu.registers.f.z, true);
+    }
+
+    #[test]
+    fn test_xor() {
+        let mut cpu = CPU::new();
+        cpu.registers.a = 0b0101;
+        cpu.registers.e = 0b0100;
+        cpu.registers.h = 0b0001;
+
+        let reg_int = reg::R8::E.try_into().unwrap();
+        let cycles = cpu.xor(reg_int);
+
+        assert_eq!(cpu.registers.a, 0b0001);
+        assert_eq!(cycles, Cycles::One);
+
+        cpu.xor(reg::R8::H.try_into().unwrap());
+
+        assert_eq!(cpu.registers.a, 0);
+        assert_eq!(cpu.registers.f.z, true);
+    }
 }
 
 
