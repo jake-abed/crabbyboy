@@ -24,6 +24,23 @@ pub enum R8 {
     A,
 }
 
+impl TryFrom<R8> for u8 {
+    type Error = ();
+
+    fn try_from(value: R8) -> Result<Self, Self::Error> {
+        match value {
+            R8::B => Ok(0),
+            R8::C => Ok(1),
+            R8::D => Ok(2),
+            R8::E => Ok(3),
+            R8::H => Ok(4),
+            R8::L => Ok(5),
+            R8::HL => Ok(6),
+            R8::A => Ok(7),
+        }
+    }
+}
+
 impl TryFrom<u8> for R8 {
     type Error = ();
 
@@ -40,7 +57,6 @@ impl TryFrom<u8> for R8 {
             _ => Err(()),
         }
     }
-
 }
 
 #[repr(u8)]

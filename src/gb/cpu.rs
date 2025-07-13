@@ -13,7 +13,7 @@ pub struct CPU {
     pub end: bool,
 }
 
-#[derive(Debug)]
+#[derive(Eq, PartialEq, Debug)]
 #[repr(u8)]
 enum Cycles {
     Zero,
@@ -675,8 +675,8 @@ impl CPU {
 
     // Begin Block 2 Helper Functions
     
-    fn add(&mut self, val: u8) -> Cycles {
-        let reg_val = self.get_register_val(val);
+    fn add(&mut self, register: u8) -> Cycles {
+        let reg_val = self.get_register_val(register);
         println!("add - val: {reg_val}");
 
         self.add_to_a(reg_val);
@@ -684,8 +684,8 @@ impl CPU {
         Cycles::One
     }
 
-    fn adc(&mut self, val: u8) -> Cycles {
-        let reg_val = self.get_register_val(val);
+    fn adc(&mut self, register: u8) -> Cycles {
+        let reg_val = self.get_register_val(register);
         println!("adc - val: {reg_val}");
         
         self.adc_to_a(reg_val);
@@ -694,8 +694,8 @@ impl CPU {
         Cycles::One
     }
 
-    fn sub(&mut self, val: u8) -> Cycles {
-        let reg_val = self.get_register_val(val);
+    fn sub(&mut self, register: u8) -> Cycles {
+        let reg_val = self.get_register_val(register);
         println!("sub - val: {reg_val}");
 
         self.sub_to_a(reg_val);
@@ -703,15 +703,15 @@ impl CPU {
         Cycles::One
     }
 
-    fn sbc(&mut self, val: u8) -> Cycles {
-        let reg_val = self.get_register_val(val);
+    fn sbc(&mut self, register: u8) -> Cycles {
+        let reg_val = self.get_register_val(register);
         println!("sbc - val: {reg_val}");
 
         Cycles::One
     }
 
-    fn and(&mut self, val: u8) -> Cycles {
-        let reg_val = self.get_register_val(val);
+    fn and(&mut self, register: u8) -> Cycles {
+        let reg_val = self.get_register_val(register);
         println!("and - val: {reg_val}");
 
         self.and_to_a(reg_val);
@@ -719,8 +719,8 @@ impl CPU {
         Cycles::One
     }
 
-    fn xor(&mut self, val: u8) -> Cycles {
-        let reg_val = self.get_register_val(val);
+    fn xor(&mut self, register: u8) -> Cycles {
+        let reg_val = self.get_register_val(register);
         println!("xor - val: {reg_val}");
 
         self.xor_to_a(reg_val);
@@ -728,8 +728,8 @@ impl CPU {
         Cycles::One
     }
 
-    fn or(&mut self, val: u8) -> Cycles {
-        let reg_val = self.get_register_val(val);
+    fn or(&mut self, register: u8) -> Cycles {
+        let reg_val = self.get_register_val(register);
         println!("or - val: {reg_val}");
 
         let new_val = self.registers.a | reg_val;
@@ -744,17 +744,17 @@ impl CPU {
         Cycles::One
     }
 
-    fn cp(&mut self, val: u8) -> Cycles {
-        let reg_val = self.get_register_val(val);
-        println!("sub - val: {reg_val}");
+    fn cp(&mut self, register: u8) -> Cycles {
+        let reg_val = self.get_register_val(register);
+        println!("cp - val: {reg_val}");
 
-        let res: u8 = self.registers.a.wrapping_sub(val);
+        let res: u8 = self.registers.a.wrapping_sub(reg_val);
 
         self.registers.f.z = if res == 0 { true } else { false };
         self.registers.f.s = true;
         let hc = half_carry_sub(self.registers.a, reg_val, false);
         self.registers.f.h = hc;
-        self.registers.f.c = val > self.registers.a;
+        self.registers.f.c = reg_val > self.registers.a;
 
         Cycles::One
     }
@@ -914,6 +914,57 @@ fn half_carry_sub(a: u8, b: u8, carry: bool) -> bool {
     } else {
         ((a & 0xF).wrapping_sub(b & 0xF)) & 0x10 != 0
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_new_cpu() {
+        let cpu = CPU::new();
+        assert_eq!(cpu.end, false);
+        assert_eq!(cpu.registers.a, 0);
+        assert_eq!(cpu.registers.b, 0);
+        assert_eq!(cpu.registers.c, 0);
+        assert_eq!(cpu.registers.d, 0);
+        assert_eq!(cpu.registers.e, 0);
+        assert_eq!(cpu.registers.h, 0);
+        assert_eq!(cpu.registers.l, 0);
+        assert_eq!(cpu.registers.f.h, false);
+        assert_eq!(cpu.registers.f.c, false);
+        assert_eq!(cpu.registers.f.z, false);
+        assert_eq!(cpu.registers.f.s, false);
+    }
+
+    #[test]
+    fn test_add() {
+        let mut cpu = CPU::new();
+        cpu.registers.a = 1;
+        cpu.registers.b = 10;
+
+        let register_int = reg::R8::B.try_into().unwrap();
+
+        let cycles = cpu.add(register_int);
+
+        assert_eq!(cpu.registers.a, 11);
+        assert_eq!(cycles, Cycles::One);
+    }
+
+    #[test]
+    fn test_sub() {
+        let mut cpu = CPU::new();
+        cpu.registers.a = 10;
+        cpu.registers.c = 1;
+
+        let reg_int = reg::R8::C.try_into().unwrap();
+
+        let cycles = cpu.sub(reg_int);
+        
+        assert_eq!(cpu.registers.a, 9);
+        assert_eq!(cycles, Cycles::One);
+    }
+
 }
 
 
