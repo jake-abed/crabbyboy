@@ -828,19 +828,37 @@ impl CPU {
     fn retcond(&mut self, cond: u8) -> Cycles {
         println!("recond - cond:{cond}");
         let parsed_cond: reg::Cond = cond.try_into().unwrap();
-        let mut cond_met= false;
+        let mut cond_met = false;
 
         match parsed_cond {
-            reg::Cond::Z => { if self.registers.f.z { cond_met = true }},
-            reg::Cond::NZ => { if !self.registers.f.z { cond_met = true }},
-            reg::Cond::C => { if self.registers.f.c { cond_met = true }},
-            reg::Cond::NC => { if !self.registers.f.c { cond_met = true }},
+            reg::Cond::Z => {
+                if self.registers.f.z {
+                    cond_met = true
+                }
+            }
+            reg::Cond::NZ => {
+                if !self.registers.f.z {
+                    cond_met = true
+                }
+            }
+            reg::Cond::C => {
+                if self.registers.f.c {
+                    cond_met = true
+                }
+            }
+            reg::Cond::NC => {
+                if !self.registers.f.c {
+                    cond_met = true
+                }
+            }
         }
 
         if cond_met {
             self.do_ret();
-            Cycles::Five }
-        else { Cycles::Two }
+            Cycles::Five
+        } else {
+            Cycles::Two
+        }
     }
 
     fn ret(&mut self) -> Cycles {
@@ -974,7 +992,7 @@ impl CPU {
         let msb = self.memory_bus.read_byte(self.registers.sp);
         self.registers.sp += 1;
 
-        let new_pc: u16 =  ((msb as u16) << 8) & (lsb as u16);
+        let new_pc: u16 = ((msb as u16) << 8) & (lsb as u16);
         self.registers.pc = new_pc;
     }
 }
