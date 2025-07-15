@@ -145,6 +145,20 @@ pub enum Cond {
     C,
 }
 
+impl TryFrom<u8> for Cond {
+    type Error = ();
+
+    fn try_from(value: u8) -> Result<Self, Self::Error> {
+        match value {
+            0 => Ok(Cond::NZ),
+            1 => Ok(Cond::Z),
+            2 => Ok(Cond::NC),
+            3 => Ok(Cond::C),
+            _ => Err(()),
+        }
+    }
+}
+
 enum FlagBytePositions {
     Zero = 7,
     Subtract = 6,

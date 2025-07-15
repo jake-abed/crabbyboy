@@ -11,6 +11,9 @@ pub struct CPU {
     registers: reg::Registers,
     pub memory_bus: MMU,
     pub end: bool,
+
+    // Interrupt Master Enable - CPU register for whether or not interrupts enabled.
+    ime: bool,
 }
 
 #[derive(Eq, PartialEq, Debug)]
@@ -31,6 +34,7 @@ impl CPU {
             registers: reg::Registers::new(),
             memory_bus: MMU::new(),
             end: false,
+            ime: false,
         }
     }
 
@@ -136,6 +140,11 @@ impl CPU {
             B3Inst::SBCN8 => self.sbc_n8(),
             B3Inst::ANDN8 => self.and_n8(),
             B3Inst::XORN8 => self.xor_n8(),
+            B3Inst::ORN8 => self.or_n8(),
+            B3Inst::CPN8 => self.cp_n8(),
+            B3Inst::RETCOND(cond) => self.retcond(cond),
+            B3Inst::RET => self.ret(),
+            B3Inst::RETI => self.reti(),
             _ => {
                 println!("IDK, {instruction:?}");
                 Cycles::One
@@ -813,6 +822,38 @@ impl CPU {
 
         self.cp_against_a(n8);
 
+        Cycles::Two
+    }
+
+    fn retcond(&mut self, cond: u8) -> Cycles {
+        println!("recond - cond:{cond}");
+        let parsed_cond: reg::Cond = cond.try_into().unwrap();
+        let mut cond_met= false;
+
+        match parsed_cond {
+            reg::Cond::Z => { if self.registers.f.z { cond_met = true }},
+            reg::Cond::NZ => { if !self.registers.f.z { cond_met = true }},
+            reg::Cond::C => { if self.registers.f.c { cond_met = true }},
+            reg::Cond::NC => { if !self.registers.f.c { cond_met = true }},
+        }
+
+        if cond_met {
+            self.do_ret();
+            Cycles::Five }
+        else { Cycles::Two }
+    }
+
+    fn ret(&mut self) -> Cycles {
+        println!("ret");
+        self.do_ret();
+        Cycles::Four
+    }
+
+    fn reti(&mut self) -> Cycles {
+        println!("reti");
+        self.do_ret();
+        self.ime = true;
+
         Cycles::Four
     }
 
@@ -925,6 +966,16 @@ impl CPU {
         let hc = half_carry_sub(self.registers.a, operand, false);
         self.registers.f.h = hc;
         self.registers.f.c = operand > self.registers.a;
+    }
+
+    fn do_ret(&mut self) {
+        let lsb = self.memory_bus.read_byte(self.registers.sp);
+        self.registers.sp += 1;
+        let msb = self.memory_bus.read_byte(self.registers.sp);
+        self.registers.sp += 1;
+
+        let new_pc: u16 =  ((msb as u16) << 8) & (lsb as u16);
+        self.registers.pc = new_pc;
     }
 }
 
