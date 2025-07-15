@@ -82,6 +82,19 @@ impl TryFrom<u8> for R16 {
 
 }
 
+impl TryFrom<R16> for u8 {
+    type Error = ();
+    
+    fn try_from(value: R16) -> Result<Self, Self::Error> {
+        match value {
+            R16::BC => Ok(0),
+            R16::DE => Ok(1),
+            R16::HL => Ok(2),
+            R16::SP => Ok(3),
+        }
+    }
+}
+
 #[repr(u8)]
 pub enum R16Stk {
     BC,
@@ -111,6 +124,19 @@ impl TryFrom<u8> for R16Mem {
         }
     }
 
+}
+
+impl TryFrom<R16Mem> for u8 {
+    type Error = ();
+    
+    fn try_from(value: R16Mem) -> Result<Self, Self::Error> {
+        match value {
+            R16Mem::BC => Ok(0),
+            R16Mem::DE => Ok(1),
+            R16Mem::HLI => Ok(2),
+            R16Mem::HLD => Ok(3),
+        }
+    }
 }
 
 #[repr(u8)]

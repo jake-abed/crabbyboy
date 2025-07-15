@@ -115,7 +115,6 @@ pub enum PrefixedInstruction {
 #[derive(Debug)]
 pub enum InstructionError {
     NotFound,
-    Invalid,
 }
 
 impl Instruction {
