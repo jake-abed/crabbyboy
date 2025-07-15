@@ -22,12 +22,10 @@ pub enum Regions {
 
 impl MemoryManagementUnit {
     pub fn new() -> MemoryManagementUnit {
-        MemoryManagementUnit {
-            memory: [0; 65536],
-        }
+        MemoryManagementUnit { memory: [0; 65536] }
     }
 
-    pub fn load_rom<'a>(&mut self, rom: impl Iterator<Item=&'a u8>) {
+    pub fn load_rom<'a>(&mut self, rom: impl Iterator<Item = &'a u8>) {
         let mut pos: usize = 0;
         for byte in rom {
             self.memory[pos] = *byte;
@@ -41,12 +39,10 @@ impl MemoryManagementUnit {
     }
 
     pub fn read_word(&self, address: u16) -> u16 {
-        (self.memory[address as usize] as u16) << 8 |
-            self.memory[(address + 1) as usize] as u16
+        (self.memory[address as usize] as u16) << 8 | self.memory[(address + 1) as usize] as u16
     }
 
     pub fn set_byte(&mut self, address: u16, val: u8) {
         self.memory[address as usize] = val;
     }
 }
-

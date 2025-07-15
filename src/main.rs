@@ -1,7 +1,7 @@
 mod gb;
 
-use std::fs;
 use crate::gb::cpu::CPU;
+use std::fs;
 
 fn main() {
     // Read the boot rom

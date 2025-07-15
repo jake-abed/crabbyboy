@@ -148,7 +148,7 @@ impl CPU {
             PrefixedInst::RLC(operand) => {
                 println!("Got RLC(operand) - {operand}");
                 Cycles::One
-            },
+            }
             _ => {
                 println!("IDK, {instruction:?}");
                 Cycles::One
@@ -157,8 +157,10 @@ impl CPU {
     }
 
     // Begin Block 0 Helper Functions
-    
-    fn nop(&mut self) -> Cycles { Cycles::One }
+
+    fn nop(&mut self) -> Cycles {
+        Cycles::One
+    }
 
     fn ldr16n16(&mut self, dest: u8) -> Cycles {
         let n16: u16 = self.fetch_n16();
@@ -300,8 +302,10 @@ impl CPU {
             Ok(reg::R16::HL) => register_val = self.registers.hl(),
             Ok(reg::R16::SP) => register_val = self.registers.sp,
             Err(err) => {
-                panic!("operand={operand} not r16 - failed to set register_val={register_val} - {err:?}");
-                },
+                panic!(
+                    "operand={operand} not r16 - failed to set register_val={register_val} - {err:?}"
+                );
+            }
         }
 
         let (res, carry) = old_hl.overflowing_add(register_val);
@@ -474,7 +478,7 @@ impl CPU {
         self.registers.f.z = false;
         self.registers.f.s = false;
         self.registers.f.c = bit > 0;
-        
+
         self.registers.a = shifted | (bit << 7);
 
         Cycles::One
@@ -659,7 +663,7 @@ impl CPU {
             Ok(reg::R8::L) => self.registers.l = source_val,
             Ok(reg::R8::HL) => {
                 self.memory_bus.set_byte(self.registers.hl(), source_val);
-            },
+            }
             Err(err) => panic!("{err:?}"),
         }
 
@@ -674,7 +678,7 @@ impl CPU {
     }
 
     // Begin Block 2 Helper Functions
-    
+
     fn add(&mut self, register: u8) -> Cycles {
         let reg_val = self.get_register_val(register);
         println!("add - val: {reg_val}");
@@ -687,7 +691,7 @@ impl CPU {
     fn adc(&mut self, register: u8) -> Cycles {
         let reg_val = self.get_register_val(register);
         println!("adc - val: {reg_val}");
-        
+
         self.adc_to_a(reg_val);
         // This should possibly be switched for a more terse binary evaluation.
 
@@ -734,14 +738,7 @@ impl CPU {
         let reg_val = self.get_register_val(register);
         println!("or - val: {reg_val}");
 
-        let new_val = self.registers.a | reg_val;
-
-        self.registers.f.z = new_val == 0;
-        self.registers.f.s = false;
-        self.registers.f.h = false;
-        self.registers.f.c = false;
-
-        self.registers.a = new_val;
+        self.or_to_a(reg_val);
 
         Cycles::One
     }
@@ -750,13 +747,7 @@ impl CPU {
         let reg_val = self.get_register_val(register);
         println!("cp - val: {reg_val}");
 
-        let res: u8 = self.registers.a.wrapping_sub(reg_val);
-
-        self.registers.f.z = if res == 0 { true } else { false };
-        self.registers.f.s = true;
-        let hc = half_carry_sub(self.registers.a, reg_val, false);
-        self.registers.f.h = hc;
-        self.registers.f.c = reg_val > self.registers.a;
+        self.cp_against_a(reg_val);
 
         Cycles::One
     }
@@ -794,7 +785,7 @@ impl CPU {
     }
 
     fn and_n8(&mut self) -> Cycles {
-        let n8: u8 = self.fetch();
+        let n8 = self.fetch();
 
         self.and_to_a(n8);
 
@@ -802,16 +793,32 @@ impl CPU {
     }
 
     fn xor_n8(&mut self) -> Cycles {
-        let n8: u8 = self.fetch();
+        let n8 = self.fetch();
 
         self.xor_to_a(n8);
 
         Cycles::Two
     }
 
+    fn or_n8(&mut self) -> Cycles {
+        let n8 = self.fetch();
+
+        self.or_to_a(n8);
+
+        Cycles::Two
+    }
+
+    fn cp_n8(&mut self) -> Cycles {
+        let n8 = self.fetch();
+
+        self.cp_against_a(n8);
+
+        Cycles::Four
+    }
+
     // General Helper Functions
-    
-    fn get_register_val(& self, register: u8) -> u8 {
+
+    fn get_register_val(&self, register: u8) -> u8 {
         match reg::R8::try_from(register) {
             Ok(reg::R8::A) => self.registers.a,
             Ok(reg::R8::B) => self.registers.b,
@@ -820,9 +827,7 @@ impl CPU {
             Ok(reg::R8::E) => self.registers.e,
             Ok(reg::R8::H) => self.registers.h,
             Ok(reg::R8::L) => self.registers.l,
-            Ok(reg::R8::HL) => {
-                self.memory_bus.read_byte(self.registers.hl())
-            },
+            Ok(reg::R8::HL) => self.memory_bus.read_byte(self.registers.hl()),
             Err(err) => panic!("invalid register val - {err:?}"),
         }
     }
@@ -876,12 +881,12 @@ impl CPU {
         self.registers.f.h = hc;
         self.registers.f.c = operand.wrapping_add(carry_val) > a_val;
 
-        self. registers.a = res;
+        self.registers.a = res;
     }
 
     fn and_to_a(&mut self, operand: u8) {
         let new_val = self.registers.a & operand;
-        
+
         self.registers.f.z = new_val == 0;
         self.registers.f.s = false;
         self.registers.f.h = true;
@@ -900,9 +905,30 @@ impl CPU {
 
         self.registers.a = new_val;
     }
+
+    fn or_to_a(&mut self, operand: u8) {
+        let new_val = self.registers.a | operand;
+
+        self.registers.f.z = new_val == 0;
+        self.registers.f.s = false;
+        self.registers.f.h = false;
+        self.registers.f.c = false;
+
+        self.registers.a = new_val;
+    }
+
+    fn cp_against_a(&mut self, operand: u8) {
+        let res: u8 = self.registers.a.wrapping_sub(operand);
+
+        self.registers.f.z = if res == 0 { true } else { false };
+        self.registers.f.s = true;
+        let hc = half_carry_sub(self.registers.a, operand, false);
+        self.registers.f.h = hc;
+        self.registers.f.c = operand > self.registers.a;
+    }
 }
 
-fn half_carry(a: u8, b:u8, carry: bool) -> bool {
+fn half_carry(a: u8, b: u8, carry: bool) -> bool {
     if carry {
         ((a & 0xF) + (b & 0xF) + (1 & 0xF)) & 0x10 != 0
     } else {
@@ -953,6 +979,21 @@ mod tests {
     }
 
     #[test]
+    fn test_adc() {
+        let mut cpu = CPU::new();
+        cpu.registers.a = 10;
+        cpu.registers.d = 1;
+        cpu.registers.f.c = true;
+
+        let reg_int = reg::R8::D.try_into().unwrap();
+
+        let cycles = cpu.adc(reg_int);
+
+        assert_eq!(cpu.registers.a, 12);
+        assert_eq!(cycles, Cycles::One);
+    }
+
+    #[test]
     fn test_sub() {
         let mut cpu = CPU::new();
         cpu.registers.a = 10;
@@ -960,7 +1001,7 @@ mod tests {
 
         let reg_int = reg::R8::C.try_into().unwrap();
         let cycles = cpu.sub(reg_int);
-        
+
         assert_eq!(cpu.registers.a, 9);
         assert_eq!(cycles, Cycles::One);
     }
@@ -982,21 +1023,6 @@ mod tests {
         cpu.sbc(reg::R8::L.try_into().unwrap());
 
         assert_eq!(cpu.registers.a, 255);
-    }
-
-    #[test]
-    fn test_adc() {
-        let mut cpu = CPU::new();
-        cpu.registers.a = 10;
-        cpu.registers.d = 1;
-        cpu.registers.f.c = true;
-
-        let reg_int = reg::R8::D.try_into().unwrap();
-
-        let cycles = cpu.adc(reg_int);
-
-        assert_eq!(cpu.registers.a, 12);
-        assert_eq!(cycles, Cycles::One);
     }
 
     #[test]
@@ -1036,6 +1062,49 @@ mod tests {
         assert_eq!(cpu.registers.a, 0);
         assert_eq!(cpu.registers.f.z, true);
     }
+
+    #[test]
+    fn test_or() {
+        let mut cpu = CPU::new();
+        cpu.registers.a = 0b0000;
+        cpu.registers.b = 0b0000;
+        cpu.registers.c = 0b0101;
+
+        let reg_int = reg::R8::B.try_into().unwrap();
+        let cycles = cpu.xor(reg_int);
+
+        assert_eq!(cpu.registers.a, 0);
+        assert_eq!(cpu.registers.f.z, true);
+        assert_eq!(cycles, Cycles::One);
+
+        cpu.xor(reg::R8::C.try_into().unwrap());
+
+        assert_eq!(cpu.registers.a, 0b0101);
+    }
+
+    #[test]
+    fn test_cp() {
+        let mut cpu = CPU::new();
+        cpu.registers.a = 17;
+        cpu.registers.b = 1;
+        cpu.registers.c = 2;
+        cpu.registers.d = 18;
+
+        let reg_int = reg::R8::B.try_into().unwrap();
+        let cycles = cpu.cp(reg_int);
+
+        assert_eq!(cpu.registers.a, 17);
+        assert_eq!(cpu.registers.f.h, false);
+        assert_eq!(cycles, Cycles::One);
+
+        cpu.cp(reg::R8::C.try_into().unwrap());
+
+        assert_eq!(cpu.registers.f.h, true);
+        assert_eq!(cpu.registers.f.c, false);
+
+        cpu.cp(reg::R8::D.try_into().unwrap());
+
+        assert_eq!(cpu.registers.f.c, true);
+        assert_eq!(cpu.registers.f.h, true);
+    }
 }
-
-

@@ -79,12 +79,11 @@ impl TryFrom<u8> for R16 {
             _ => Err(()),
         }
     }
-
 }
 
 impl TryFrom<R16> for u8 {
     type Error = ();
-    
+
     fn try_from(value: R16) -> Result<Self, Self::Error> {
         match value {
             R16::BC => Ok(0),
@@ -123,12 +122,11 @@ impl TryFrom<u8> for R16Mem {
             _ => Err(()),
         }
     }
-
 }
 
 impl TryFrom<R16Mem> for u8 {
     type Error = ();
-    
+
     fn try_from(value: R16Mem) -> Result<Self, Self::Error> {
         match value {
             R16Mem::BC => Ok(0),
