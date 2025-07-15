@@ -996,14 +996,23 @@ mod tests {
     #[test]
     fn test_sub() {
         let mut cpu = CPU::new();
-        cpu.registers.a = 10;
+        cpu.registers.a = 17;
         cpu.registers.c = 1;
+        cpu.registers.d = 17;
 
         let reg_int = reg::R8::C.try_into().unwrap();
         let cycles = cpu.sub(reg_int);
 
-        assert_eq!(cpu.registers.a, 9);
+        assert_eq!(cpu.registers.a, 16);
+        assert_eq!(cpu.registers.f.h, false);
+        assert_eq!(cpu.registers.f.z, false);
         assert_eq!(cycles, Cycles::One);
+
+        cpu.sub(reg::R8::D.try_into().unwrap());
+
+        assert_eq!(cpu.registers.a, 255);
+        assert_eq!(cpu.registers.f.h, true);
+        assert_eq!(cpu.registers.f.c, true);
     }
 
     #[test]
