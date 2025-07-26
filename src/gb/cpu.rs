@@ -145,6 +145,9 @@ impl CPU {
             B3Inst::RETCOND(cond) => self.retcond(cond),
             B3Inst::RET => self.ret(),
             B3Inst::RETI => self.reti(),
+            B3Inst::JPCOND(cond) => self.jpcond(cond),
+            B3Inst::JPN16 => self.jp_n16(),
+            B3Inst::JPHL => self.jp_hl(),
             _ => {
                 println!("IDK, {instruction:?}");
                 Cycles::One
@@ -827,33 +830,8 @@ impl CPU {
 
     fn retcond(&mut self, cond: u8) -> Cycles {
         println!("recond - cond:{cond}");
-        let parsed_cond: reg::Cond = cond.try_into().unwrap();
-        let mut cond_met = false;
 
-        match parsed_cond {
-            reg::Cond::Z => {
-                if self.registers.f.z {
-                    cond_met = true
-                }
-            }
-            reg::Cond::NZ => {
-                if !self.registers.f.z {
-                    cond_met = true
-                }
-            }
-            reg::Cond::C => {
-                if self.registers.f.c {
-                    cond_met = true
-                }
-            }
-            reg::Cond::NC => {
-                if !self.registers.f.c {
-                    cond_met = true
-                }
-            }
-        }
-
-        if cond_met {
+        if self.cond_met(cond) {
             self.do_ret();
             Cycles::Five
         } else {
@@ -873,6 +851,34 @@ impl CPU {
         self.ime = true;
 
         Cycles::Four
+    }
+
+    fn jpcond(&mut self, cond: u8) -> Cycles {
+        println!("jpcond: {cond}");
+
+        if self.cond_met(cond) {
+            let n16 = self.fetch_n16();
+            self.do_jp(n16);
+            Cycles::Four
+        } else {
+            Cycles::Three
+        }
+    }
+
+    fn jp_n16(&mut self) -> Cycles {
+        println!("jp_n16");
+
+        let n16 = self.fetch_n16();
+        self.do_jp(n16);
+        Cycles::Four
+    }
+
+    fn jp_hl(&mut self) -> Cycles {
+        println!("jp_hl");
+
+        let hl = self.registers.hl();
+        self.do_jp(hl);
+        Cycles::One
     }
 
     // General Helper Functions
@@ -986,6 +992,36 @@ impl CPU {
         self.registers.f.c = operand > self.registers.a;
     }
 
+    fn cond_met(&mut self, cond: u8) -> bool {
+        let parsed_cond: reg::Cond = cond.try_into().unwrap();
+        let mut cond_met: bool = false;
+
+        match parsed_cond {
+            reg::Cond::Z => {
+                if self.registers.f.z {
+                    cond_met = true
+                }
+            }
+            reg::Cond::NZ => {
+                if !self.registers.f.z {
+                    cond_met = true
+                }
+            }
+            reg::Cond::C => {
+                if self.registers.f.c {
+                    cond_met = true
+                }
+            }
+            reg::Cond::NC => {
+                if !self.registers.f.c {
+                    cond_met = true
+                }
+            }
+        }
+
+        cond_met
+    }
+
     fn do_ret(&mut self) {
         let lsb = self.memory_bus.read_byte(self.registers.sp);
         self.registers.sp += 1;
@@ -994,6 +1030,10 @@ impl CPU {
 
         let new_pc: u16 = ((msb as u16) << 8) & (lsb as u16);
         self.registers.pc = new_pc;
+    }
+
+    fn do_jp(&mut self, target: u16) {
+        self.registers.pc = target;
     }
 }
 

@@ -79,7 +79,7 @@ pub enum B3Instruction {
     RETCOND(u8),
     RET,
     RETI,
-    JPCONDN8(u8),
+    JPCOND(u8),
     JPN16,
     JPHL,
     CALLCONDN8(u8),
@@ -295,7 +295,7 @@ impl Instruction {
         match bottom_three {
             0x0 => Ok(Instruction::Block3(B3Instruction::RETCOND(cond))),
             0x1 => Ok(Instruction::Block3(B3Instruction::POP(register))),
-            0x2 => Ok(Instruction::Block3(B3Instruction::JPCONDN8(cond))),
+            0x2 => Ok(Instruction::Block3(B3Instruction::JPCOND(cond))),
             0x4 => Ok(Instruction::Block3(B3Instruction::CALLCONDN8(cond))),
             0x5 => Ok(Instruction::Block3(B3Instruction::PUSH(register))),
             0x7 => Ok(Instruction::Block3(B3Instruction::RST(tgt3))),
