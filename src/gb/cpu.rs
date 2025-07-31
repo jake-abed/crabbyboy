@@ -603,39 +603,16 @@ impl CPU {
     }
 
     fn jrcondn8(&mut self, cond: u8) -> Cycles {
-        let mut num_cycles = Cycles::Two;
         println!("jrcondn8 - cond: {cond}");
-        match cond {
-            0x0 => {
-                if !self.registers.f.z {
-                    self.jump_relative();
-                    num_cycles = Cycles::Three;
-                }
-            }
-            0x1 => {
-                if self.registers.f.z {
-                    self.jump_relative();
-                    num_cycles = Cycles::Three;
-                }
-            }
-            0x2 => {
-                if !self.registers.f.c {
-                    self.jump_relative();
-                    num_cycles = Cycles::Three;
-                }
-            }
-            0x3 => {
-                if self.registers.f.c {
-                    self.jump_relative();
-                    num_cycles = Cycles::Three;
-                }
-            }
-            _ => {
-                panic!("cond: {cond} not valid, could not jump")
-            }
-        }
 
-        num_cycles
+        let cond_met = self.cond_met(cond);
+        
+        if cond_met {
+            self.jump_relative();
+            Cycles::Three
+        } else {
+            Cycles::Two
+        }
     }
 
     fn stop(&mut self) -> Cycles {
