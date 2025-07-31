@@ -66,6 +66,11 @@ impl CPU {
         n16
     }
 
+    fn push_sp(&mut self, byte: u16) {
+        self.registers.sp = self.registers.sp.wrapping_sub(1);
+        self.memory_bus.set_byte(self.sp, byte);
+    }
+
     /* Parent function to execute the an instruction. Filters down through
      * successive match cases to perform the expected instruction.
      */
@@ -148,6 +153,8 @@ impl CPU {
             B3Inst::JPCOND(cond) => self.jpcond(cond),
             B3Inst::JPN16 => self.jp_n16(),
             B3Inst::JPHL => self.jp_hl(),
+            B3Inst::CALLCONDN16(cond) => self.call_cond_n16(cond),
+            B3Inst::CALLN16 => self.call_n16(),
             _ => {
                 println!("IDK, {instruction:?}");
                 Cycles::One
@@ -832,9 +839,9 @@ impl CPU {
 
     fn jpcond(&mut self, cond: u8) -> Cycles {
         println!("jpcond: {cond}");
+        let n16 = self.fetch_n16();
 
         if self.cond_met(cond) {
-            let n16 = self.fetch_n16();
             self.do_jp(n16);
             Cycles::Four
         } else {
@@ -856,6 +863,31 @@ impl CPU {
         let hl = self.registers.hl();
         self.do_jp(hl);
         Cycles::One
+    }
+
+    fn call_cond_n16(&mut self, cond: u8) -> Cycles {
+        println!("call_cond_n16 - cond: {cond}");
+        let n16 = self.fetch_n16();
+
+        let cond_met = self.cond_met(cond);
+        if cond_met {
+            let curr_pc= self.registers.pc;
+            self.push_sp(curr_pc);
+            self.registers.pc = n16;
+            Cycles::Six
+        } else {
+            Cycles::Three
+        }
+    }
+
+    fn call_n16(&mut self) -> Cycles {
+        println!("call_n16");
+        let n16 = self.fetch_n16();
+        let curr_pc = self.registers.pc;
+
+        self.push_sp(curr_pc);
+        self.registers.pc = n16;
+        Cycles::Six
     }
 
     // General Helper Functions
