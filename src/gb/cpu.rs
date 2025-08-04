@@ -44,6 +44,8 @@ impl CPU {
         if prefixed {
             byte = self.fetch();
         }
+        let pc = self.registers.pc;
+        println!("cycling: {pc}");
         self.execute(byte, prefixed);
     }
 
@@ -66,9 +68,13 @@ impl CPU {
         n16
     }
 
-    fn push_sp(&mut self, byte: u16) {
+    fn push_sp(&mut self, sp: u16) {
+        let lsb: u8 = (sp >> 4) as u8;
+        let msb: u8 = (sp & 0x0F) as u8;
         self.registers.sp = self.registers.sp.wrapping_sub(1);
-        self.memory_bus.set_byte(self.sp, byte);
+        self.memory_bus.set_byte(self.registers.sp, msb);
+        self.registers.sp = self.registers.sp.wrapping_sub(1);
+        self.memory_bus.set_byte(self.registers.sp, lsb);
     }
 
     /* Parent function to execute the an instruction. Filters down through
@@ -887,6 +893,7 @@ impl CPU {
 
         self.push_sp(curr_pc);
         self.registers.pc = n16;
+        println!("{self:?}");
         Cycles::Six
     }
 

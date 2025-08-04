@@ -39,7 +39,7 @@ impl MemoryManagementUnit {
     }
 
     pub fn read_word(&self, address: u16) -> u16 {
-        (self.memory[address as usize] as u16) << 8 | self.memory[(address + 1) as usize] as u16
+        (self.memory[address as usize] as u16) | (self.memory[(address + 1) as usize] as u16) << 8
     }
 
     pub fn set_byte(&mut self, address: u16, val: u8) {
